@@ -28,3 +28,11 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+## Game architecture & debug hooks
+
+- Pure simulation lives in `src/game/sim/` with zero React or Three.js imports so rules and collisions are verified via Vitest (`src/game/sim/engine.test.ts`).
+- `src/routes/index.tsx` mounts with `ssr: false` and drives one `<Canvas>` via a single `useFrame` stepper in `src/game/scene/GameScene.tsx`, keeping per-frame state in refs and entity pools to avoid React re-renders.
+- Ready signal: `main[data-scene-ready="1"]` is set after the first rendered 3D frame.
+- Dev-only `window.__game` exposes `{ state, start(), action(dir), sim(seconds), audio() }` for deterministic scripted verification.
+- Online leaderboard scores are stored in `public.leaderboard_scores` via Lovable Cloud (`src/game/leaderboard.ts`) alongside local best records in `localStorage` (`src/game/storage.ts`).

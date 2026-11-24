@@ -30,6 +30,8 @@
  */
 
 @theme inline {
+  --font-display: "Silkscreen", monospace;
+  --font-sans: "Rubik", system-ui, sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -53,6 +55,12 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  --color-pine: var(--pine);
+  --color-pine-foreground: var(--pine-foreground);
+  --color-hud-surface: var(--hud-surface);
+  --color-hud-border: var(--hud-border);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -73,26 +81,32 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.129 0.042 264.695);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.129 0.042 264.695);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.129 0.042 264.695);
-  --primary: oklch(0.208 0.042 265.755);
-  --primary-foreground: oklch(0.984 0.003 247.858);
-  --secondary: oklch(0.968 0.007 247.896);
-  --secondary-foreground: oklch(0.208 0.042 265.755);
-  --muted: oklch(0.968 0.007 247.896);
-  --muted-foreground: oklch(0.554 0.046 257.417);
-  --accent: oklch(0.968 0.007 247.896);
-  --accent-foreground: oklch(0.208 0.042 265.755);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.929 0.013 255.508);
-  --input: oklch(0.929 0.013 255.508);
-  --ring: oklch(0.704 0.04 256.788);
+  --radius: 0.375rem;
+  --background: oklch(0.18 0.045 258);
+  --foreground: oklch(0.97 0.008 245);
+  --card: oklch(0.22 0.045 255 / 92%);
+  --card-foreground: oklch(0.97 0.008 245);
+  --popover: oklch(0.22 0.045 255);
+  --popover-foreground: oklch(0.97 0.008 245);
+  --primary: oklch(0.58 0.22 25);
+  --primary-foreground: oklch(0.99 0.005 90);
+  --secondary: oklch(0.3 0.05 255);
+  --secondary-foreground: oklch(0.97 0.008 245);
+  --muted: oklch(0.28 0.04 255);
+  --muted-foreground: oklch(0.78 0.025 245);
+  --accent: oklch(0.82 0.17 85);
+  --accent-foreground: oklch(0.2 0.04 60);
+  --destructive: oklch(0.56 0.24 25);
+  --destructive-foreground: oklch(0.99 0.005 90);
+  --gold: oklch(0.84 0.175 86);
+  --gold-foreground: oklch(0.2 0.05 60);
+  --pine: oklch(0.52 0.14 150);
+  --pine-foreground: oklch(0.98 0.01 150);
+  --hud-surface: oklch(0.15 0.04 258 / 78%);
+  --hud-border: oklch(0.95 0.015 245 / 22%);
+  --border: oklch(0.95 0.015 245 / 20%);
+  --input: oklch(0.95 0.015 245 / 20%);
+  --ring: oklch(0.84 0.175 86);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -151,5 +165,54 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-family: var(--font-sans);
+    overflow: hidden;
+    user-select: none;
+    touch-action: none;
   }
+}
+
+@keyframes timer-shake {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  15% { transform: translate(-8px, 3px) rotate(-2deg); }
+  30% { transform: translate(8px, -3px) rotate(2deg); }
+  45% { transform: translate(-7px, -2px) rotate(-1.5deg); }
+  60% { transform: translate(7px, 2px) rotate(1.5deg); }
+  75% { transform: translate(-4px, 1px) rotate(-0.8deg); }
+}
+
+@keyframes red-flash-anim {
+  0% { opacity: 0.72; }
+  100% { opacity: 0; }
+}
+
+.hud-panel {
+  background-color: var(--hud-surface);
+  border: 2px solid var(--hud-border);
+  box-shadow: 0 4px 0 oklch(0.08 0.03 260 / 65%);
+  backdrop-filter: blur(6px);
+}
+
+.voxel-btn {
+  font-family: var(--font-display);
+  box-shadow: 0 5px 0 oklch(0.1 0.03 260 / 80%), inset 0 2px 0 oklch(1 0 0 / 28%);
+  transition: transform 80ms ease, box-shadow 80ms ease, filter 120ms ease;
+}
+
+.voxel-btn:hover {
+  filter: brightness(1.08);
+}
+
+.voxel-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 2px 0 oklch(0.1 0.03 260 / 80%), inset 0 1px 0 oklch(1 0 0 / 20%);
+}
+
+.timer-frozen-shake {
+  animation: timer-shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) 2;
+}
+
+.coin-red-flash {
+  background: radial-gradient(circle, oklch(0.6 0.25 25 / 45%) 0%, oklch(0.5 0.26 25 / 85%) 100%);
+  animation: red-flash-anim 0.65s ease-out forwards;
 }
