@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import type * as THREE from "three";
+import type { MapThemeDef } from "../catalog";
 import { SIM_CONFIG, type GameState } from "../sim/types";
 import type { VoxelTextures } from "./textures";
 
@@ -12,9 +13,10 @@ const MAX_COINS = 64;
 interface EntitiesMeshProps {
   stateRef: React.MutableRefObject<GameState>;
   textures: VoxelTextures;
+  theme: MapThemeDef;
 }
 
-export function EntitiesMesh({ stateRef, textures }: EntitiesMeshProps) {
+export function EntitiesMesh({ stateRef, textures, theme }: EntitiesMeshProps) {
   const trainRefs = useRef<(THREE.Group | null)[]>([]);
   const trainBodyMatRefs = useRef<(THREE.MeshStandardMaterial | null)[]>([]);
   const jumpRefs = useRef<(THREE.Group | null)[]>([]);
@@ -41,7 +43,7 @@ export function EntitiesMesh({ stateRef, textures }: EntitiesMeshProps) {
             grp.scale.set(1, 1, obs.length / 10);
           }
           if (mat) {
-            mat.color.set(obs.kind === "train_red" ? "#c92a2a" : "#7c4a26");
+            mat.color.set(obs.kind === "train_red" ? theme.trainPrimary : theme.trainSecondary);
           }
           trainIdx++;
         }
@@ -109,20 +111,20 @@ export function EntitiesMesh({ stateRef, textures }: EntitiesMeshProps) {
             trainRefs.current[i] = el;
           }}
         >
-          <mesh position={[0, 1.5, 0]} castShadow receiveShadow>
-            <boxGeometry args={[2.0, 2.5, 10]} />
+          <mesh position={[0, 1.4, 0]} castShadow receiveShadow>
+            <boxGeometry args={[2.0, 2.28, 10]} />
             <meshStandardMaterial
               ref={(el) => {
                 trainBodyMatRefs.current[i] = el;
               }}
-              color="#c92a2a"
+              color={theme.trainPrimary}
               roughness={0.65}
             />
           </mesh>
-          {/* Teto com neve */}
-          <mesh position={[0, 2.86, 0]}>
-            <boxGeometry args={[2.06, 0.24, 10.05]} />
-            <meshStandardMaterial color="#e9f3ff" roughness={0.55} />
+          {/* Teto plano (altura 2.75) onde o jogador pode pousar e correr */}
+          <mesh position={[0, 2.64, 0]} receiveShadow>
+            <boxGeometry args={[2.06, 0.22, 10.05]} />
+            <meshStandardMaterial color={theme.trainRoof} roughness={0.55} />
           </mesh>
           {/* Base / rodas */}
           <mesh position={[0, 0.22, 0]}>

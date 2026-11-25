@@ -1,5 +1,13 @@
+import type { CharacterId, MapId } from "./catalog";
+
 const STORAGE_KEY = "thzinkkj_best_record_v1";
 const NICKNAME_KEY = "thzinkkj_nickname_v1";
+const PREFS_KEY = "thzinkkj_prefs_v1";
+
+export interface PlayerPrefs {
+  character: CharacterId;
+  map: MapId;
+}
 
 export interface LocalRecord {
   bestTime: number;
@@ -54,6 +62,32 @@ export function saveNickname(name: string): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(NICKNAME_KEY, name.trim().slice(0, 20));
+  } catch {
+    // ignore
+  }
+}
+
+export function loadPlayerPrefs(): PlayerPrefs {
+  if (typeof window === "undefined") return { character: "thzin", map: "natal" };
+  try {
+    const raw = window.localStorage.getItem(PREFS_KEY);
+    if (!raw) return { character: "thzin", map: "natal" };
+    const parsed = JSON.parse(raw) as Partial<PlayerPrefs>;
+    const validChars: CharacterId[] = ["thzin", "noel", "explorador", "robo"];
+    const validMaps: MapId[] = ["natal", "deserto", "selva"];
+    return {
+      character: parsed.character && validChars.includes(parsed.character) ? parsed.character : "thzin",
+      map: parsed.map && validMaps.includes(parsed.map) ? parsed.map : "natal",
+    };
+  } catch {
+    return { character: "thzin", map: "natal" };
+  }
+}
+
+export function savePlayerPrefs(prefs: PlayerPrefs): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
   } catch {
     // ignore
   }

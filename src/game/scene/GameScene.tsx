@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Environment, Lightformer } from "@react-three/drei";
 import { gameAudio } from "../audio/sound";
+import { getMapTheme, type CharacterId, type MapId } from "../catalog";
 import { stepSimulation } from "../sim/engine";
 import type { GameOverReason, GamePhase, GameState } from "../sim/types";
 import { EntitiesMesh } from "./EntitiesMesh";
@@ -20,12 +21,15 @@ export interface HudSnapshot {
 
 interface GameSceneProps {
   stateRef: React.MutableRefObject<GameState>;
+  character: CharacterId;
+  mapId: MapId;
   onHudSync: (snap: HudSnapshot) => void;
   onSceneReady: () => void;
 }
 
-function SceneContent({ stateRef, onHudSync, onSceneReady }: GameSceneProps) {
-  const textures = useMemo(() => createVoxelTextures(), []);
+function SceneContent({ stateRef, character, mapId, onHudSync, onSceneReady }: GameSceneProps) {
+  const theme = useMemo(() => getMapTheme(mapId), [mapId]);
+  const textures = useMemo(() => createVoxelTextures(mapId), [mapId]);
   const readySentRef = useRef(false);
   const hudThrottleRef = useRef(0);
   const lastPhaseRef = useRef<GamePhase>(stateRef.current.phase);
@@ -52,11 +56,11 @@ function SceneContent({ stateRef, onHudSync, onSceneReady }: GameSceneProps) {
     const sy = shakeAmt > 0 ? Math.cos(state.shakeTimer * 52) * shakeAmt * 0.6 : 0;
 
     const targetCamX = state.laneX * 0.58 + sx;
-    const targetCamY = 4.65 + state.playerY * 0.28 + sy;
+    const targetCamY = 4.65 + state.playerY * 0.65 + sy;
     camera.position.x += (targetCamX - camera.position.x) * 0.16;
     camera.position.y += (targetCamY - camera.position.y) * 0.16;
     camera.position.z = 7.4;
-    camera.lookAt(state.laneX * 0.42, 1.45 + state.playerY * 0.15, -14);
+    camera.lookAt(state.laneX * 0.42, 1.45 + state.playerY * 0.45, -14);
 
     hudThrottleRef.current += rawDelta;
     const phaseChanged = state.phase !== lastPhaseRef.current;
@@ -76,22 +80,21 @@ function SceneContent({ stateRef, onHudSync, onSceneReady }: GameSceneProps) {
 
   return (
     <>
-      {/* Céu azul escuro anoitecendo + névoa de inverno */}
-      <color attach="background" args={["#0f1c3d"]} />
-      <fog attach="fog" args={["#0f1c3d", 28, 98]} />
+      <color attach="background" args={[theme.skyColor]} />
+      <fog attach="fog" args={[theme.fogColor, 28, 98]} />
 
       {/* IBL local sem CDN */}
       <Environment resolution={128}>
-        <Lightformer intensity={1.8} color="#9ec5ff" position={[0, 8, 2]} scale={[14, 14, 1]} />
-        <Lightformer intensity={1.2} color="#ffd9a0" position={[6, 4, -8]} scale={[8, 6, 1]} />
-        <Lightformer intensity={0.9} color="#6b8fd4" position={[-8, 3, -4]} scale={[10, 6, 1]} />
+        <Lightformer intensity={1.8} color={theme.lightformerTop} position={[0, 8, 2]} scale={[14, 14, 1]} />
+        <Lightformer intensity={1.2} color={theme.lightformerWarm} position={[6, 4, -8]} scale={[8, 6, 1]} />
+        <Lightformer intensity={0.9} color={theme.lightformerSide} position={[-8, 3, -4]} scale={[10, 6, 1]} />
       </Environment>
 
-      <hemisphereLight args={["#9bc2ff", "#253459", 0.95]} />
+      <hemisphereLight args={[theme.hemiSky, theme.hemiGround, theme.hemiIntensity]} />
       <directionalLight
         position={[10, 18, 12]}
-        intensity={1.55}
-        color="#fff3dc"
+        intensity={theme.sunIntensity}
+        color={theme.sunColor}
         castShadow
         shadow-mapSize={[512, 512]}
         shadow-camera-near={1}
@@ -102,9 +105,9 @@ function SceneContent({ stateRef, onHudSync, onSceneReady }: GameSceneProps) {
         shadow-camera-bottom={-18}
       />
 
-      <WorldScenery stateRef={stateRef} textures={textures} />
-      <EntitiesMesh stateRef={stateRef} textures={textures} />
-      <PlayerMesh stateRef={stateRef} />
+      <WorldScenery stateRef={stateRef} textures={textures} theme={theme} />
+      <EntitiesMesh stateRef={stateRef} textures={textures} theme={theme} />
+      <PlayerMesh stateRef={stateRef} character={character} />
     </>
   );
 }

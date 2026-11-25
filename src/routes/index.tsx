@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { gameAudio } from "@/game/audio/sound";
+import type { CharacterId, MapId } from "@/game/catalog";
 import { GameScene, type HudSnapshot } from "@/game/scene/GameScene";
 import { applyInput, createInitialState, startNewRun, stepSimulation } from "@/game/sim/engine";
 import type { GameState, InputAction } from "@/game/sim/types";
-import { loadLocalRecord, saveLocalRecord, type LocalRecord } from "@/game/storage";
+import {
+  loadLocalRecord,
+  loadPlayerPrefs,
+  saveLocalRecord,
+  savePlayerPrefs,
+  type LocalRecord,
+} from "@/game/storage";
 import { GameHud } from "@/game/ui/GameHud";
 import { LeaderboardModal } from "@/game/ui/LeaderboardModal";
 import { Overlays } from "@/game/ui/Overlays";
@@ -40,6 +47,7 @@ function GamePage() {
 
   const [sceneReady, setSceneReady] = useState(false);
   const [localRecord, setLocalRecord] = useState<LocalRecord>(() => loadLocalRecord());
+  const [prefs, setPrefs] = useState(() => loadPlayerPrefs());
   const [isNewBest, setIsNewBest] = useState(false);
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
@@ -52,6 +60,22 @@ function GamePage() {
     difficultyTier: 0,
     coinFlashActive: false,
   });
+
+  const selectCharacter = useCallback((character: CharacterId) => {
+    setPrefs((prev) => {
+      const next = { ...prev, character };
+      savePlayerPrefs(next);
+      return next;
+    });
+  }, []);
+
+  const selectMap = useCallback((map: MapId) => {
+    setPrefs((prev) => {
+      const next = { ...prev, map };
+      savePlayerPrefs(next);
+      return next;
+    });
+  }, []);
 
   const triggerAction = useCallback((action: InputAction) => {
     gameAudio.unlock();
@@ -142,6 +166,8 @@ function GamePage() {
           elapsed: Number(s.elapsed.toFixed(2)),
           distance: Math.floor(s.distance),
           lane: s.targetLane,
+          playerY: Number(s.playerY.toFixed(2)),
+          isGrounded: s.isGrounded,
           speed: Number(s.speed.toFixed(1)),
           difficultyTier: s.difficultyTier,
           coinsCount: s.coins.length,
@@ -150,6 +176,8 @@ function GamePage() {
       },
       start: startGame,
       action: triggerAction,
+      setCharacter: selectCharacter,
+      setMap: selectMap,
       sim: (seconds: number) => {
         const steps = Math.max(1, Math.round(seconds * 60));
         for (let i = 0; i < steps; i++) stepSimulation(stateRef.current, 1 / 60);
@@ -168,7 +196,7 @@ function GamePage() {
     return () => {
       delete w["__game"];
     };
-  }, [handleHudSync, startGame, triggerAction]);
+  }, [handleHudSync, selectCharacter, selectMap, startGame, triggerAction]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     const touch = e.touches[0];
@@ -201,6 +229,8 @@ function GamePage() {
     >
       <GameScene
         stateRef={stateRef}
+        character={prefs.character}
+        mapId={prefs.map}
         onHudSync={handleHudSync}
         onSceneReady={() => setSceneReady(true)}
       />
@@ -223,6 +253,10 @@ function GamePage() {
         distance={hud.distance}
         isNewBest={isNewBest}
         localRecord={localRecord}
+        character={prefs.character}
+        mapId={prefs.map}
+        onSelectCharacter={selectCharacter}
+        onSelectMap={selectMap}
         onStart={startGame}
         onResume={togglePause}
         onRestart={startGame}

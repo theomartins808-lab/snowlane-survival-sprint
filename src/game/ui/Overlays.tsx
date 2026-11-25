@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Play, RotateCcw, Trophy, Send, Check } from "lucide-react";
+import { CHARACTERS, MAPS, type CharacterId, type MapId } from "../catalog";
 import { submitLeaderboardScore } from "../leaderboard";
 import { formatTimer, type GameOverReason, type GamePhase } from "../sim/types";
 import { loadSavedNickname, saveNickname, type LocalRecord } from "../storage";
@@ -11,6 +12,10 @@ interface OverlaysProps {
   distance: number;
   isNewBest: boolean;
   localRecord: LocalRecord;
+  character: CharacterId;
+  mapId: MapId;
+  onSelectCharacter: (id: CharacterId) => void;
+  onSelectMap: (id: MapId) => void;
   onStart: () => void;
   onResume: () => void;
   onRestart: () => void;
@@ -24,6 +29,10 @@ export function Overlays({
   distance,
   isNewBest,
   localRecord,
+  character,
+  mapId,
+  onSelectCharacter,
+  onSelectMap,
   onStart,
   onResume,
   onRestart,
@@ -61,29 +70,74 @@ export function Overlays({
 
   if (phase === "menu") {
     return (
-      <div className="fixed inset-0 z-30 flex items-center justify-center bg-background/55 p-4 backdrop-blur-[2px]">
-        <div className="hud-panel flex w-full max-w-md flex-col items-center rounded-md px-6 py-7 text-center">
+      <div className="fixed inset-0 z-30 flex items-center justify-center overflow-y-auto bg-background/45 p-3 backdrop-blur-[1px]">
+        <div className="hud-panel my-auto flex w-full max-w-md flex-col items-center rounded-md px-5 py-5 text-center sm:px-6 sm:py-6">
           <span className="rounded bg-primary/25 px-3 py-1 font-display text-[11px] tracking-widest text-gold uppercase">
             NÃO PEGUE A MOEDA!
           </span>
           <h1 className="mt-3 font-display text-4xl tracking-tight text-foreground drop-shadow-[0_4px_0_rgba(8,14,32,0.9)] sm:text-5xl">
             thzinkkj
           </h1>
-          <p className="mt-3 max-w-xs text-sm leading-relaxed text-muted-foreground">
-            Corra pelos trilhos de Natal e <strong className="text-foreground">desvie de todas as moedas douradas</strong>.
-            Tocou em 1 moeda? O cronômetro para na hora!
+          <p className="mt-2 max-w-xs text-xs leading-relaxed text-muted-foreground sm:text-sm">
+            <strong className="text-foreground">Desvie de todas as moedas</strong> e pule em cima de trens e obstáculos!
           </p>
 
-          <div className="mt-4 flex flex-wrap justify-center gap-2 text-xs text-muted-foreground">
-            <span className="rounded bg-secondary/80 px-2.5 py-1">A / D ou ← → Trilhos</span>
-            <span className="rounded bg-secondary/80 px-2.5 py-1">W / Espaço Pular</span>
-            <span className="rounded bg-secondary/80 px-2.5 py-1">S Abaixar</span>
+          <div className="mt-4 w-full text-left">
+            <p className="mb-1.5 text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
+              Personagem
+            </p>
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+              {CHARACTERS.map((c) => {
+                const selected = c.id === character;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => onSelectCharacter(c.id)}
+                    className={`flex items-center justify-center gap-1.5 rounded border px-2 py-1.5 text-xs font-bold transition ${
+                      selected
+                        ? "border-gold bg-gold/20 text-foreground"
+                        : "border-border/70 bg-secondary/75 text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-xs" style={{ backgroundColor: c.accent }} />
+                    <span className="truncate">{c.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-3 w-full text-left">
+            <p className="mb-1.5 text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
+              Mapa
+            </p>
+            <div className="grid grid-cols-3 gap-1.5">
+              {MAPS.map((m) => {
+                const selected = m.id === mapId;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => onSelectMap(m.id)}
+                    className={`flex items-center justify-center gap-1.5 rounded border px-2 py-1.5 text-xs font-bold transition ${
+                      selected
+                        ? "border-gold bg-gold/20 text-foreground"
+                        : "border-border/70 bg-secondary/75 text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-xs" style={{ backgroundColor: m.accent }} />
+                    <span className="truncate">{m.name}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <button
             type="button"
             onClick={onStart}
-            className="voxel-btn mt-6 flex w-full items-center justify-center gap-2 rounded-md bg-pine px-6 py-3.5 text-lg text-pine-foreground"
+            className="voxel-btn mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-pine px-6 py-3 text-lg text-pine-foreground"
           >
             <Play className="h-5 w-5 fill-current" />
             JOGAR

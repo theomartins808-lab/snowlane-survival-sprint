@@ -110,4 +110,81 @@ describe("thzinkkj — simulação Não Pegue a Moeda", () => {
     expect(tierUpCount).toBe(2);
     expect(state.speed).toBeGreaterThan(initialSpeed);
   });
+
+  it("permite pular e pousar em cima de um trem, correr no teto e cair ao sair dele", () => {
+    const state = createInitialState(55);
+    startNewRun(state, 55);
+    state.coins = [];
+    state.obstacles = [
+      {
+        id: 50,
+        kind: "train_red",
+        lane: 0,
+        z: -12,
+        length: 12,
+        width: 1.95,
+        minY: 0,
+        maxY: 2.75,
+      },
+    ];
+
+    expect(applyInput(state, "jump")).toBe("jump");
+    let landedOnRoof = false;
+    for (let i = 0; i < 60; i++) {
+      stepSimulation(state, 1 / 60);
+      if (state.isGrounded && Math.abs(state.playerY - 2.75) < 0.01) {
+        landedOnRoof = true;
+        break;
+      }
+    }
+
+    expect(state.phase).toBe("playing");
+    expect(landedOnRoof).toBe(true);
+
+    // Consegue pular novamente de cima do trem
+    expect(applyInput(state, "jump")).toBe("jump");
+    stepSimulation(state, 1 / 60);
+    expect(state.playerY).toBeGreaterThan(2.75);
+
+    // Ao passar do final do trem, volta para o chão y = 0 sem bater
+    for (let i = 0; i < 120; i++) {
+      state.coins = [];
+      state.obstacles = state.obstacles.filter((o) => o.id === 50);
+      stepSimulation(state, 1 / 60);
+    }
+    expect(state.phase).toBe("playing");
+    expect(state.playerY).toBe(0);
+    expect(state.isGrounded).toBe(true);
+  });
+
+  it("permite pular e pousar em cima de uma barreira baixa sem bater", () => {
+    const state = createInitialState(77);
+    startNewRun(state, 77);
+    state.coins = [];
+    state.obstacles = [
+      {
+        id: 70,
+        kind: "barrier_jump",
+        lane: 0,
+        z: -10.8,
+        length: 1.8,
+        width: 2.0,
+        minY: 0,
+        maxY: 1.05,
+      },
+    ];
+
+    expect(applyInput(state, "jump")).toBe("jump");
+    let landedOnBarrier = false;
+    for (let i = 0; i < 60; i++) {
+      stepSimulation(state, 1 / 60);
+      if (state.isGrounded && Math.abs(state.playerY - 1.05) < 0.01) {
+        landedOnBarrier = true;
+        break;
+      }
+    }
+
+    expect(state.phase).toBe("playing");
+    expect(landedOnBarrier).toBe(true);
+  });
 });

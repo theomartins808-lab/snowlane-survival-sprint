@@ -129,14 +129,10 @@ export function stepSimulation(state: GameState, rawDt: number): GameEvent[] {
   state.laneX += (targetX - state.laneX) * blend;
 
   // Vertical jump & gravity
+  const prevY = state.playerY;
   if (!state.isGrounded) {
     state.playerY += state.playerVy * dt;
     state.playerVy -= SIM_CONFIG.GRAVITY * dt;
-    if (state.playerY <= 0) {
-      state.playerY = 0;
-      state.playerVy = 0;
-      state.isGrounded = true;
-    }
   }
 
   if (state.duckTimer > 0) {
@@ -155,15 +151,64 @@ export function stepSimulation(state: GameState, rawDt: number): GameEvent[] {
 
   populateHorizon(state);
 
-  // Collision checks (player sits at z = 0)
-  const playerMinY = state.playerY;
+  // Resolve obstacle support surfaces (landing / running on top of trains & obstacles) vs side/front crash
   const playerHeight =
     state.duckTimer > 0 && state.isGrounded
       ? SIM_CONFIG.PLAYER_DUCK_HEIGHT
       : SIM_CONFIG.PLAYER_STAND_HEIGHT;
-  const playerMaxY = playerMinY + playerHeight;
 
-  // 1. Check golden coins FIRST — touching ANY coin freezes the timer immediately!
+  let supportY = 0;
+  for (const obs of state.obstacles) {
+    const obsX = obs.lane * SIM_CONFIG.LANE_WIDTH;
+    if (Math.abs(obs.z) > obs.length * 0.5 + SIM_CONFIG.PLAYER_HALF_DEPTH * 0.85) continue;
+    if (Math.abs(obsX - state.laneX) > obs.width * 0.5 + SIM_CONFIG.PLAYER_HALF_WIDTH * 0.75) {
+      continue;
+    }
+
+    // Check if the player is above or landing onto the top surface of this obstacle
+    const canLandOnTop =
+      prevY >= obs.maxY - SIM_CONFIG.LANDING_TOLERANCE &&
+      state.playerVy <= 0.5 &&
+      state.playerY <= obs.maxY + 0.12;
+
+    if (canLandOnTop) {
+      if (obs.maxY > supportY) supportY = obs.maxY;
+      continue;
+    }
+
+    // Already high above the obstacle (flying over it)
+    if (state.playerY >= obs.maxY - 0.08) {
+      continue;
+    }
+
+    // Otherwise check body collision (front/side crash or hitting overhead beam while standing)
+    const playerMinY = state.playerY;
+    const playerMaxY = playerMinY + playerHeight;
+    if (obs.maxY > playerMinY + 0.08 && obs.minY < playerMaxY - 0.08) {
+      state.phase = "gameover";
+      state.reason = "crash";
+      state.shakeTimer = 0.55;
+      events.push("crash");
+      return events;
+    }
+  }
+
+  // Snap to support surface (ground y=0 or obstacle roof) or start falling when stepping off
+  if (state.playerY <= supportY && state.playerVy <= 0) {
+    state.playerY = supportY;
+    state.playerVy = 0;
+    state.isGrounded = true;
+  } else if (state.playerY > supportY) {
+    state.isGrounded = false;
+  }
+
+  // Check golden coins — touching ANY coin freezes the timer immediately!
+  const playerMinY = state.playerY;
+  const finalHeight =
+    state.duckTimer > 0 && state.isGrounded
+      ? SIM_CONFIG.PLAYER_DUCK_HEIGHT
+      : SIM_CONFIG.PLAYER_STAND_HEIGHT;
+  const playerMaxY = playerMinY + finalHeight;
   for (const coin of state.coins) {
     if (Math.abs(coin.z) > SIM_CONFIG.PLAYER_HALF_DEPTH + SIM_CONFIG.COIN_RADIUS) continue;
     if (Math.abs(coin.x - state.laneX) > SIM_CONFIG.PLAYER_HALF_WIDTH + SIM_CONFIG.COIN_RADIUS) {
@@ -175,22 +220,6 @@ export function stepSimulation(state: GameState, rawDt: number): GameEvent[] {
       state.shakeTimer = 0.7;
       state.coinFlashTimer = 0.65;
       events.push("coin_hit");
-      return events;
-    }
-  }
-
-  // 2. Check obstacles (trains & barriers)
-  for (const obs of state.obstacles) {
-    const obsX = obs.lane * SIM_CONFIG.LANE_WIDTH;
-    if (Math.abs(obs.z) > obs.length * 0.5 + SIM_CONFIG.PLAYER_HALF_DEPTH * 0.85) continue;
-    if (Math.abs(obsX - state.laneX) > obs.width * 0.5 + SIM_CONFIG.PLAYER_HALF_WIDTH * 0.75) {
-      continue;
-    }
-    if (obs.maxY > playerMinY + 0.08 && obs.minY < playerMaxY - 0.08) {
-      state.phase = "gameover";
-      state.reason = "crash";
-      state.shakeTimer = 0.55;
-      events.push("crash");
       return events;
     }
   }

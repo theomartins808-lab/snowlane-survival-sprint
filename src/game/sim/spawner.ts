@@ -59,6 +59,18 @@ export function spawnObstacleWave(state: GameState, z: number): void {
     const len1 = 10 + Math.floor(nextRand(state) * 5);
     state.obstacles.push(makeTrain(state, kind1, lane1, z, len1));
 
+    // Occasional bait coin on top of a train roof so roof-running stays thrilling
+    if (nextRand(state) < 0.4) {
+      state.coins.push({
+        id: state.nextEntityId++,
+        lane: lane1,
+        x: lane1 * SIM_CONFIG.LANE_WIDTH,
+        y: 3.55,
+        z: z - 1.5,
+        phase: nextRand(state) * Math.PI * 2,
+      });
+    }
+
     const doubleChance = Math.min(0.65, 0.25 + tier * 0.1);
     if (nextRand(state) < doubleChance) {
       const lane2 = pickDifferentLane(state, lane1);
@@ -150,7 +162,7 @@ function makeTrain(
     length,
     width: 1.95,
     minY: 0,
-    maxY: 2.95,
+    maxY: 2.75,
   };
 }
 
