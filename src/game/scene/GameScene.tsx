@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import * as THREE from "three";
 import { Environment, Lightformer } from "@react-three/drei";
 import { gameAudio } from "../audio/sound";
 import { getMapTheme, type CharacterId, type MapId } from "../catalog";
@@ -26,6 +27,41 @@ interface GameSceneProps {
   isMobile: boolean;
   onHudSync: (snap: HudSnapshot) => void;
   onSceneReady: () => void;
+}
+
+/** No celular troca materiais PBR por Lambert (muito mais leve na GPU). */
+function MobileMaterialDowngrade() {
+  const scene = useThree((s) => s.scene);
+  const cache = useRef(new Map<THREE.Material, THREE.Material>());
+  const timer = useRef(0);
+  useFrame((_, dt) => {
+    timer.current -= dt;
+    if (timer.current > 0) return;
+    timer.current = 0.5;
+    scene.traverse((obj) => {
+      const mesh = obj as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const swap = (m: THREE.Material): THREE.Material => {
+        if (!(m instanceof THREE.MeshStandardMaterial)) return m;
+        let lam = cache.current.get(m);
+        if (!lam) {
+          lam = new THREE.MeshLambertMaterial({
+            color: m.color,
+            map: m.map,
+            emissive: m.emissive,
+            emissiveIntensity: m.emissiveIntensity,
+            transparent: m.transparent,
+            opacity: m.opacity,
+            side: m.side,
+          });
+          cache.current.set(m, lam);
+        }
+        return lam;
+      };
+      mesh.material = Array.isArray(mesh.material) ? mesh.material.map(swap) : swap(mesh.material);
+    });
+  });
+  return null;
 }
 
 function SceneContent({ stateRef, character, mapId, isMobile, onHudSync, onSceneReady }: GameSceneProps) {
@@ -82,14 +118,16 @@ function SceneContent({ stateRef, character, mapId, isMobile, onHudSync, onScene
   return (
     <>
       <color attach="background" args={[theme.skyColor]} />
-      <fog attach="fog" args={[theme.fogColor, isMobile ? 22 : 28, isMobile ? 76 : 98]} />
+      <fog attach="fog" args={[theme.fogColor, isMobile ? 18 : 28, isMobile ? 62 : 98]} />
 
+      {isMobile && <MobileMaterialDowngrade />}
+      {isMobile && <ambientLight intensity={0.55} />}
       {/* IBL local sem CDN */}
-      <Environment resolution={isMobile ? 64 : 128}>
+      {!isMobile && <Environment resolution={isMobile ? 64 : 128}>
         <Lightformer intensity={1.8} color={theme.lightformerTop} position={[0, 8, 2]} scale={[14, 14, 1]} />
         <Lightformer intensity={1.2} color={theme.lightformerWarm} position={[6, 4, -8]} scale={[8, 6, 1]} />
         <Lightformer intensity={0.9} color={theme.lightformerSide} position={[-8, 3, -4]} scale={[10, 6, 1]} />
-      </Environment>
+      </Environment>}
 
       <hemisphereLight args={[theme.hemiSky, theme.hemiGround, theme.hemiIntensity]} />
       <directionalLight
@@ -118,9 +156,10 @@ export function GameScene(props: GameSceneProps) {
   return (
     <Canvas
       shadows={!isMobile}
-      dpr={isMobile ? [1, 1.25] : [1, 2]}
-      camera={{ position: [0, 4.65, 7.4], fov: isMobile ? 62 : 56, near: 0.2, far: isMobile ? 105 : 140 }}
-      gl={{ antialias: !isMobile, powerPreference: "high-performance" }}
+      dpr={isMobile ? [0.75, 1] : [1, 2]}
+      camera={{ position: [0, 4.65, 7.4], fov: isMobile ? 62 : 56, near: 0.2, far: isMobile ? 80 : 140 }}
+      gl={{ antialias: !isMobile, powerPreference: "high-performance", stencil: false, depth: true }}
+      performance={{ min: 0.6 }}
       className="h-full w-full"
     >
       <SceneContent {...props} />
