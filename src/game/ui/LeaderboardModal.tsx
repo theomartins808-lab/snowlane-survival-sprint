@@ -36,7 +36,7 @@ export function LeaderboardModal({ open, onClose, localRecord, highlightId }: Le
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/75 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/75 p-4 md:backdrop-blur-sm">
       <div className="hud-panel flex max-h-[85vh] w-full max-w-md flex-col rounded-md p-5 text-foreground">
         <div className="flex items-center justify-between gap-2 border-b border-border pb-3">
           <div className="flex items-center gap-2">

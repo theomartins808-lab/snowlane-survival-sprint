@@ -78,7 +78,7 @@ export function Overlays({
 
   if (phase === "menu") {
     return (
-      <div className="fixed inset-0 z-30 flex items-center justify-center overflow-y-auto bg-background/45 p-3 backdrop-blur-[1px]">
+      <div className="fixed inset-0 z-30 flex items-center justify-center overflow-y-auto bg-background/45 p-3 md:backdrop-blur-[1px]">
         <div className="hud-panel my-auto flex w-full max-w-md flex-col items-center rounded-md px-5 py-5 text-center sm:px-6 sm:py-6">
           <div className="mb-2 flex w-full items-center justify-between text-xs">
             <span className="truncate font-bold text-foreground">@{accountNick}</span>
@@ -178,7 +178,7 @@ export function Overlays({
 
   if (phase === "paused") {
     return (
-      <div className="fixed inset-0 z-30 flex items-center justify-center bg-background/65 p-4 backdrop-blur-xs">
+      <div className="fixed inset-0 z-30 flex items-center justify-center bg-background/65 p-4 md:backdrop-blur-xs">
         <div className="hud-panel flex w-full max-w-xs flex-col items-center rounded-md p-6 text-center">
           <h2 className="font-display text-2xl text-foreground">PAUSADO</h2>
           <p className="mt-1 text-xs text-muted-foreground">Tempo atual: {formatTimer(elapsed)}</p>
@@ -209,7 +209,7 @@ export function Overlays({
   if (phase === "gameover") {
     const isCoin = reason === "coin";
     return (
-      <div className="fixed inset-0 z-30 flex items-center justify-center bg-background/65 p-4 backdrop-blur-[2px]">
+      <div className="fixed inset-0 z-30 flex items-center justify-center bg-background/65 p-4 md:backdrop-blur-[2px]">
         <div className="hud-panel flex w-full max-w-md flex-col items-center rounded-md px-5 py-6 text-center">
           <h2
             className={`font-display text-xl leading-snug sm:text-2xl ${
