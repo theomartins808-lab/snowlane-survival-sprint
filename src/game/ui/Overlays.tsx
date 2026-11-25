@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Play, RotateCcw, Trophy, Send, Check } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Play, RotateCcw, Trophy, Send, Check, LogOut } from "lucide-react";
 import { CHARACTERS, MAPS, type CharacterId, type MapId } from "../catalog";
 import { submitLeaderboardScore } from "../leaderboard";
 import { formatTimer, type GameOverReason, type GamePhase } from "../sim/types";
@@ -12,10 +12,12 @@ interface OverlaysProps {
   distance: number;
   isNewBest: boolean;
   localRecord: LocalRecord;
+  accountNick: string;
   character: CharacterId;
   mapId: MapId;
   onSelectCharacter: (id: CharacterId) => void;
   onSelectMap: (id: MapId) => void;
+  onSignOut: () => void;
   onStart: () => void;
   onResume: () => void;
   onRestart: () => void;
@@ -29,19 +31,25 @@ export function Overlays({
   distance,
   isNewBest,
   localRecord,
+  accountNick,
   character,
   mapId,
   onSelectCharacter,
   onSelectMap,
+  onSignOut,
   onStart,
   onResume,
   onRestart,
   onOpenLeaderboard,
 }: OverlaysProps) {
-  const [nickname, setNickname] = useState(() => loadSavedNickname());
+  const [nickname, setNickname] = useState(() => accountNick || loadSavedNickname());
   const [submitting, setSubmitting] = useState(false);
   const [submittedId, setSubmittedId] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (accountNick) setNickname(accountNick);
+  }, [accountNick]);
 
   const handleSubmitScore = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,6 +80,17 @@ export function Overlays({
     return (
       <div className="fixed inset-0 z-30 flex items-center justify-center overflow-y-auto bg-background/45 p-3 backdrop-blur-[1px]">
         <div className="hud-panel my-auto flex w-full max-w-md flex-col items-center rounded-md px-5 py-5 text-center sm:px-6 sm:py-6">
+          <div className="mb-2 flex w-full items-center justify-between text-xs">
+            <span className="truncate font-bold text-foreground">@{accountNick}</span>
+            <button
+              type="button"
+              onClick={onSignOut}
+              className="flex items-center gap-1 rounded bg-secondary/80 px-2.5 py-1 text-[11px] font-bold text-muted-foreground hover:text-foreground"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sair
+            </button>
+          </div>
           <span className="rounded bg-primary/25 px-3 py-1 font-display text-[11px] tracking-widest text-gold uppercase">
             NÃO PEGUE A MOEDA!
           </span>

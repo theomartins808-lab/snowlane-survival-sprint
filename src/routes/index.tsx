@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import {
+  fetchCurrentProfile,
+  fetchProfileById,
+  signOutAccount,
+  updateProfilePrefs,
+  updateProfileRecord,
+  type PlayerProfile,
+} from "@/game/account";
 import { gameAudio } from "@/game/audio/sound";
 import type { CharacterId, MapId } from "@/game/catalog";
 import { GameScene, type HudSnapshot } from "@/game/scene/GameScene";
@@ -12,9 +20,11 @@ import {
   savePlayerPrefs,
   type LocalRecord,
 } from "@/game/storage";
+import { AuthGate } from "@/game/ui/AuthGate";
 import { GameHud } from "@/game/ui/GameHud";
 import { LeaderboardModal } from "@/game/ui/LeaderboardModal";
 import { Overlays } from "@/game/ui/Overlays";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
   ssr: false,
@@ -42,10 +52,18 @@ export const Route = createFileRoute("/")({
 function GamePage() {
   const stateRef = useRef<GameState>(createInitialState());
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const swipeConsumedRef = useRef(false);
   const keyFlashTimerRef = useRef<number | null>(null);
   const savedThisRunRef = useRef(false);
 
+  const [isMobile] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      (window.matchMedia("(pointer: coarse)").matches || window.innerWidth < 768),
+  );
   const [sceneReady, setSceneReady] = useState(false);
+  const [profile, setProfile] = useState<PlayerProfile | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [localRecord, setLocalRecord] = useState<LocalRecord>(() => loadLocalRecord());
   const [prefs, setPrefs] = useState(() => loadPlayerPrefs());
   const [isNewBest, setIsNewBest] = useState(false);
@@ -61,19 +79,74 @@ function GamePage() {
     coinFlashActive: false,
   });
 
-  const selectCharacter = useCallback((character: CharacterId) => {
-    setPrefs((prev) => {
-      const next = { ...prev, character };
-      savePlayerPrefs(next);
-      return next;
-    });
+  const applyProfile = useCallback((next: PlayerProfile | null) => {
+    setProfile(next);
+    if (!next) return;
+    setPrefs({ character: next.characterId, map: next.mapId });
+    savePlayerPrefs({ character: next.characterId, map: next.mapId });
+    setLocalRecord((prev) => ({
+      bestTime: Math.max(prev.bestTime, next.bestTime),
+      bestDistance: Math.max(prev.bestDistance, next.bestDistance),
+    }));
   }, []);
 
-  const selectMap = useCallback((map: MapId) => {
-    setPrefs((prev) => {
-      const next = { ...prev, map };
-      savePlayerPrefs(next);
-      return next;
+  useEffect(() => {
+    let active = true;
+    void fetchCurrentProfile()
+      .then((p) => {
+        if (active) applyProfile(p);
+      })
+      .finally(() => {
+        if (active) setAuthLoading(false);
+      });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") {
+        applyProfile(null);
+      } else if ((event === "SIGNED_IN" || event === "USER_UPDATED") && session?.user) {
+        const userId = session.user.id;
+        window.setTimeout(() => {
+          void fetchProfileById(userId).then((p) => {
+            if (active && p) applyProfile(p);
+          });
+        }, 0);
+      }
+    });
+    return () => {
+      active = false;
+      sub.subscription.unsubscribe();
+    };
+  }, [applyProfile]);
+
+  const selectCharacter = useCallback(
+    (character: CharacterId) => {
+      setPrefs((prev) => {
+        const next = { ...prev, character };
+        savePlayerPrefs(next);
+        if (profile) void updateProfilePrefs(profile.id, next.character, next.map);
+        return next;
+      });
+    },
+    [profile],
+  );
+
+  const selectMap = useCallback(
+    (map: MapId) => {
+      setPrefs((prev) => {
+        const next = { ...prev, map };
+        savePlayerPrefs(next);
+        if (profile) void updateProfilePrefs(profile.id, next.character, next.map);
+        return next;
+      });
+    },
+    [profile],
+  );
+
+  const handleSignOut = useCallback(() => {
+    void signOutAccount().then(() => {
+      setProfile(null);
+      stateRef.current.phase = "menu";
+      setHud((prev) => ({ ...prev, phase: "menu" }));
     });
   }, []);
 
@@ -113,19 +186,31 @@ function GamePage() {
     }
   }, []);
 
-  const handleHudSync = useCallback((snap: HudSnapshot) => {
-    if (snap.phase === "gameover" && !savedThisRunRef.current) {
-      savedThisRunRef.current = true;
-      const { record, isNewBest: beat } = saveLocalRecord(snap.elapsed, snap.distance);
-      setLocalRecord(record);
-      setIsNewBest(beat);
-    }
-    setHud(snap);
-  }, []);
+  const handleHudSync = useCallback(
+    (snap: HudSnapshot) => {
+      if (snap.phase === "gameover" && !savedThisRunRef.current) {
+        savedThisRunRef.current = true;
+        const { record, isNewBest: beat } = saveLocalRecord(snap.elapsed, snap.distance);
+        setLocalRecord(record);
+        setIsNewBest(beat);
+        if (profile && (snap.elapsed > profile.bestTime || snap.distance > profile.bestDistance)) {
+          const nextBestTime = Math.max(profile.bestTime, snap.elapsed);
+          const nextBestDist = Math.max(profile.bestDistance, Math.floor(snap.distance));
+          setProfile((prev) =>
+            prev ? { ...prev, bestTime: nextBestTime, bestDistance: nextBestDist } : prev,
+          );
+          void updateProfileRecord(profile.id, nextBestTime, nextBestDist);
+        }
+      }
+      setHud(snap);
+    },
+    [profile],
+  );
 
   // Keyboard controls: WASD, Arrow keys, Space, Pause (P / Escape)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if (!profile) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       const code = e.code;
       if (code === "ArrowLeft" || code === "KeyA") {
@@ -151,7 +236,7 @@ function GamePage() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [startGame, togglePause, triggerAction]);
+  }, [profile, startGame, togglePause, triggerAction]);
 
   // Dev-only debug hooks for automated verification
   useEffect(() => {
@@ -202,16 +287,39 @@ function GamePage() {
     const touch = e.touches[0];
     if (!touch) return;
     touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+    swipeConsumedRef.current = false;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (swipeConsumedRef.current || stateRef.current.phase !== "playing") return;
+    const start = touchStartRef.current;
+    const touch = e.touches[0];
+    if (!start || !touch) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    const threshold = 26;
+    if (Math.abs(dx) < threshold && Math.abs(dy) < threshold) return;
+    swipeConsumedRef.current = true;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      triggerAction(dx > 0 ? "right" : "left");
+    } else {
+      triggerAction(dy < 0 ? "jump" : "duck");
+    }
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
+    if (swipeConsumedRef.current) {
+      touchStartRef.current = null;
+      swipeConsumedRef.current = false;
+      return;
+    }
     const start = touchStartRef.current;
     const touch = e.changedTouches[0];
     touchStartRef.current = null;
     if (!start || !touch) return;
     const dx = touch.clientX - start.x;
     const dy = touch.clientY - start.y;
-    const threshold = 28;
+    const threshold = 26;
     if (Math.abs(dx) < threshold && Math.abs(dy) < threshold) return;
     if (Math.abs(dx) > Math.abs(dy)) {
       triggerAction(dx > 0 ? "right" : "left");
@@ -224,13 +332,15 @@ function GamePage() {
     <main
       data-scene-ready={sceneReady ? "1" : undefined}
       onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className="relative h-dvh w-screen overflow-hidden bg-background"
+      className="relative h-dvh w-screen touch-none select-none overflow-hidden bg-background"
     >
       <GameScene
         stateRef={stateRef}
         character={prefs.character}
         mapId={prefs.map}
+        isMobile={isMobile}
         onHudSync={handleHudSync}
         onSceneReady={() => setSceneReady(true)}
       />
@@ -246,25 +356,37 @@ function GamePage() {
         onTogglePause={togglePause}
       />
 
-      <Overlays
-        phase={hud.phase}
-        reason={hud.reason}
-        elapsed={hud.elapsed}
-        distance={hud.distance}
-        isNewBest={isNewBest}
-        localRecord={localRecord}
-        character={prefs.character}
-        mapId={prefs.map}
-        onSelectCharacter={selectCharacter}
-        onSelectMap={selectMap}
-        onStart={startGame}
-        onResume={togglePause}
-        onRestart={startGame}
-        onOpenLeaderboard={(id) => {
-          setHighlightScoreId(id ?? null);
-          setLeaderboardOpen(true);
-        }}
-      />
+      {authLoading ? (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/50">
+          <div className="hud-panel rounded-md px-5 py-3 font-display text-xs text-gold">
+            CARREGANDO CONTA...
+          </div>
+        </div>
+      ) : !profile ? (
+        <AuthGate onAuthenticated={applyProfile} />
+      ) : (
+        <Overlays
+          phase={hud.phase}
+          reason={hud.reason}
+          elapsed={hud.elapsed}
+          distance={hud.distance}
+          isNewBest={isNewBest}
+          localRecord={localRecord}
+          accountNick={profile.nick}
+          character={prefs.character}
+          mapId={prefs.map}
+          onSelectCharacter={selectCharacter}
+          onSelectMap={selectMap}
+          onSignOut={handleSignOut}
+          onStart={startGame}
+          onResume={togglePause}
+          onRestart={startGame}
+          onOpenLeaderboard={(id) => {
+            setHighlightScoreId(id ?? null);
+            setLeaderboardOpen(true);
+          }}
+        />
+      )}
 
       <LeaderboardModal
         open={leaderboardOpen}

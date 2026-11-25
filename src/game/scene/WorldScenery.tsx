@@ -8,12 +8,14 @@ import type { VoxelTextures } from "./textures";
 const CHUNK_LEN = 24;
 const CHUNK_COUNT = 6;
 const TOTAL_SPAN = CHUNK_LEN * CHUNK_COUNT;
-const PARTICLE_COUNT = 260;
+const DESKTOP_PARTICLES = 240;
+const MOBILE_PARTICLES = 85;
 
 interface WorldSceneryProps {
   stateRef: React.MutableRefObject<GameState>;
   textures: VoxelTextures;
   theme: MapThemeDef;
+  isMobile: boolean;
 }
 
 function PineTree({ position, scale = 1 }: { position: [number, number, number]; scale?: number }) {
@@ -372,31 +374,34 @@ function TrackChunk({
   );
 }
 
-export function WorldScenery({ stateRef, textures, theme }: WorldSceneryProps) {
+export function WorldScenery({ stateRef, textures, theme, isMobile }: WorldSceneryProps) {
   const chunkRefs = useRef<(THREE.Group | null)[]>([]);
   const particleRef = useRef<THREE.Points>(null);
+  const particleCount = isMobile ? MOBILE_PARTICLES : DESKTOP_PARTICLES;
+  const activeChunks = isMobile ? 4 : CHUNK_COUNT;
+  const activeSpan = CHUNK_LEN * activeChunks;
 
   const particlePositions = useMemo(() => {
-    const arr = new Float32Array(PARTICLE_COUNT * 3);
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
+    const arr = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount; i++) {
       const seed = (i + 1) * 9301;
       arr[i * 3] = (((seed * 17) % 1000) / 1000 - 0.5) * 32;
       arr[i * 3 + 1] = (((seed * 29) % 1000) / 1000) * 16 + 0.5;
       arr[i * 3 + 2] = -(((seed * 43) % 1000) / 1000) * 58 + 10;
     }
     return arr;
-  }, []);
+  }, [particleCount]);
 
   useFrame((_, rawDelta) => {
     const dt = Math.min(rawDelta, 0.05);
     const scroll = stateRef.current.worldScroll;
 
-    for (let i = 0; i < CHUNK_COUNT; i++) {
+    for (let i = 0; i < activeChunks; i++) {
       const grp = chunkRefs.current[i];
       if (!grp) continue;
       const base = -i * CHUNK_LEN;
-      const shifted = ((base + scroll) % TOTAL_SPAN + TOTAL_SPAN) % TOTAL_SPAN;
-      grp.position.z = shifted > CHUNK_LEN ? shifted - TOTAL_SPAN : shifted;
+      const shifted = ((base + scroll) % activeSpan + activeSpan) % activeSpan;
+      grp.position.z = shifted > CHUNK_LEN ? shifted - activeSpan : shifted;
     }
 
     const pts = particleRef.current;
@@ -405,7 +410,7 @@ export function WorldScenery({ stateRef, textures, theme }: WorldSceneryProps) {
       const arr = posAttr.array as Float32Array;
       const forwardWind = stateRef.current.phase === "playing" ? stateRef.current.speed * 0.45 : 3;
       const fallSpeed = theme.id === "natal" ? 2.6 : theme.id === "deserto" ? 0.55 : -0.45;
-      for (let i = 0; i < PARTICLE_COUNT; i++) {
+      for (let i = 0; i < particleCount; i++) {
         const ix = i * 3;
         const iy = ix + 1;
         const iz = ix + 2;
@@ -422,7 +427,7 @@ export function WorldScenery({ stateRef, textures, theme }: WorldSceneryProps) {
 
   return (
     <group>
-      {Array.from({ length: CHUNK_COUNT }).map((_, i) => (
+      {Array.from({ length: activeChunks }).map((_, i) => (
         <TrackChunk
           key={i}
           index={i}
@@ -434,7 +439,7 @@ export function WorldScenery({ stateRef, textures, theme }: WorldSceneryProps) {
         />
       ))}
 
-      <points ref={particleRef}>
+      <points key={particleCount} ref={particleRef}>
         <bufferGeometry>
           <bufferAttribute attach="attributes-position" args={[particlePositions, 3]} />
         </bufferGeometry>

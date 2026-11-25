@@ -41,6 +41,42 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          best_distance: number
+          best_time: number
+          character_id: string
+          created_at: string
+          id: string
+          map_id: string
+          nick: string
+          nick_normalized: string
+          updated_at: string
+        }
+        Insert: {
+          best_distance?: number
+          best_time?: number
+          character_id?: string
+          created_at?: string
+          id: string
+          map_id?: string
+          nick: string
+          nick_normalized: string
+          updated_at?: string
+        }
+        Update: {
+          best_distance?: number
+          best_time?: number
+          character_id?: string
+          created_at?: string
+          id?: string
+          map_id?: string
+          nick?: string
+          nick_normalized?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

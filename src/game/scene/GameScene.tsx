@@ -23,11 +23,12 @@ interface GameSceneProps {
   stateRef: React.MutableRefObject<GameState>;
   character: CharacterId;
   mapId: MapId;
+  isMobile: boolean;
   onHudSync: (snap: HudSnapshot) => void;
   onSceneReady: () => void;
 }
 
-function SceneContent({ stateRef, character, mapId, onHudSync, onSceneReady }: GameSceneProps) {
+function SceneContent({ stateRef, character, mapId, isMobile, onHudSync, onSceneReady }: GameSceneProps) {
   const theme = useMemo(() => getMapTheme(mapId), [mapId]);
   const textures = useMemo(() => createVoxelTextures(mapId), [mapId]);
   const readySentRef = useRef(false);
@@ -81,10 +82,10 @@ function SceneContent({ stateRef, character, mapId, onHudSync, onSceneReady }: G
   return (
     <>
       <color attach="background" args={[theme.skyColor]} />
-      <fog attach="fog" args={[theme.fogColor, 28, 98]} />
+      <fog attach="fog" args={[theme.fogColor, isMobile ? 22 : 28, isMobile ? 76 : 98]} />
 
       {/* IBL local sem CDN */}
-      <Environment resolution={128}>
+      <Environment resolution={isMobile ? 64 : 128}>
         <Lightformer intensity={1.8} color={theme.lightformerTop} position={[0, 8, 2]} scale={[14, 14, 1]} />
         <Lightformer intensity={1.2} color={theme.lightformerWarm} position={[6, 4, -8]} scale={[8, 6, 1]} />
         <Lightformer intensity={0.9} color={theme.lightformerSide} position={[-8, 3, -4]} scale={[10, 6, 1]} />
@@ -95,7 +96,7 @@ function SceneContent({ stateRef, character, mapId, onHudSync, onSceneReady }: G
         position={[10, 18, 12]}
         intensity={theme.sunIntensity}
         color={theme.sunColor}
-        castShadow
+        castShadow={!isMobile}
         shadow-mapSize={[512, 512]}
         shadow-camera-near={1}
         shadow-camera-far={75}
@@ -105,7 +106,7 @@ function SceneContent({ stateRef, character, mapId, onHudSync, onSceneReady }: G
         shadow-camera-bottom={-18}
       />
 
-      <WorldScenery stateRef={stateRef} textures={textures} theme={theme} />
+      <WorldScenery stateRef={stateRef} textures={textures} theme={theme} isMobile={isMobile} />
       <EntitiesMesh stateRef={stateRef} textures={textures} theme={theme} />
       <PlayerMesh stateRef={stateRef} character={character} />
     </>
@@ -113,12 +114,13 @@ function SceneContent({ stateRef, character, mapId, onHudSync, onSceneReady }: G
 }
 
 export function GameScene(props: GameSceneProps) {
+  const { isMobile } = props;
   return (
     <Canvas
-      shadows
-      dpr={[1, 2]}
-      camera={{ position: [0, 4.65, 7.4], fov: 56, near: 0.2, far: 140 }}
-      gl={{ antialias: true, powerPreference: "high-performance" }}
+      shadows={!isMobile}
+      dpr={isMobile ? [1, 1.25] : [1, 2]}
+      camera={{ position: [0, 4.65, 7.4], fov: isMobile ? 62 : 56, near: 0.2, far: isMobile ? 105 : 140 }}
+      gl={{ antialias: !isMobile, powerPreference: "high-performance" }}
       className="h-full w-full"
     >
       <SceneContent {...props} />
