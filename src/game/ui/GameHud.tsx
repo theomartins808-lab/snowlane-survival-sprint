@@ -47,7 +47,7 @@ export function GameHud({
         {/* Cronômetro grande branco no topo centro */}
         <div className="flex flex-col items-center text-center">
           <div
-            className={`font-display text-4xl leading-none tracking-wider drop-shadow-[0_4px_0_rgba(8,14,32,0.85)] sm:text-6xl ${
+            className={`font-display text-4xl leading-none tracking-wider [text-shadow:0_4px_0_rgba(8,14,32,0.85)] sm:text-6xl ${
               coinFrozen ? "timer-frozen-shake text-destructive" : "text-foreground"
             }`}
           >

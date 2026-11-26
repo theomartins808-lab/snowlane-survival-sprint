@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Play, RotateCcw, Trophy, Send, Check, LogOut } from "lucide-react";
+import { Play, RotateCcw, Trophy, Send, Check, LogOut, LogIn } from "lucide-react";
 import { CHARACTERS, MAPS, type CharacterId, type MapId } from "../catalog";
 import { submitLeaderboardScore } from "../leaderboard";
 import { formatTimer, type GameOverReason, type GamePhase } from "../sim/types";
@@ -12,11 +12,12 @@ interface OverlaysProps {
   distance: number;
   isNewBest: boolean;
   localRecord: LocalRecord;
-  accountNick: string;
+  accountNick: string | null;
   character: CharacterId;
   mapId: MapId;
   onSelectCharacter: (id: CharacterId) => void;
   onSelectMap: (id: MapId) => void;
+  onOpenAuth: () => void;
   onSignOut: () => void;
   onStart: () => void;
   onResume: () => void;
@@ -36,13 +37,14 @@ export function Overlays({
   mapId,
   onSelectCharacter,
   onSelectMap,
+  onOpenAuth,
   onSignOut,
   onStart,
   onResume,
   onRestart,
   onOpenLeaderboard,
 }: OverlaysProps) {
-  const [nickname, setNickname] = useState(() => accountNick || loadSavedNickname());
+  const [nickname, setNickname] = useState(() => accountNick ?? loadSavedNickname());
   const [submitting, setSubmitting] = useState(false);
   const [submittedId, setSubmittedId] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -81,20 +83,38 @@ export function Overlays({
       <div className="fixed inset-0 z-30 flex items-center justify-center overflow-y-auto bg-background/45 p-3 md:backdrop-blur-[1px]">
         <div className="hud-panel my-auto flex w-full max-w-md flex-col items-center rounded-md px-5 py-5 text-center sm:px-6 sm:py-6">
           <div className="mb-2 flex w-full items-center justify-between text-xs">
-            <span className="truncate font-bold text-foreground">@{accountNick}</span>
-            <button
-              type="button"
-              onClick={onSignOut}
-              className="flex items-center gap-1 rounded bg-secondary/80 px-2.5 py-1 text-[11px] font-bold text-muted-foreground hover:text-foreground"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              Sair
-            </button>
+            {accountNick ? (
+              <>
+                <span className="truncate font-bold text-foreground">@{accountNick}</span>
+                <button
+                  type="button"
+                  onClick={onSignOut}
+                  className="flex items-center gap-1 rounded bg-secondary/80 px-2.5 py-1 text-[11px] font-bold text-muted-foreground hover:text-foreground"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  Sair
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="rounded bg-secondary/80 px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
+                  Modo convidado
+                </span>
+                <button
+                  type="button"
+                  onClick={onOpenAuth}
+                  className="flex items-center gap-1 rounded bg-gold/20 px-2.5 py-1 text-[11px] font-bold text-gold hover:bg-gold/30"
+                >
+                  <LogIn className="h-3.5 w-3.5" />
+                  Entrar / Criar conta
+                </button>
+              </>
+            )}
           </div>
           <span className="rounded bg-primary/25 px-3 py-1 font-display text-[11px] tracking-widest text-gold uppercase">
             NÃO PEGUE A MOEDA!
           </span>
-          <h1 className="mt-3 font-display text-4xl tracking-tight text-foreground drop-shadow-[0_4px_0_rgba(8,14,32,0.9)] sm:text-5xl">
+          <h1 className="mt-3 font-display text-4xl tracking-tight text-foreground [text-shadow:0_4px_0_rgba(8,14,32,0.9)] sm:text-5xl">
             thzinkkj
           </h1>
           <p className="mt-2 max-w-xs text-xs leading-relaxed text-muted-foreground sm:text-sm">
@@ -159,7 +179,7 @@ export function Overlays({
             className="voxel-btn mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-pine px-6 py-3 text-lg text-pine-foreground"
           >
             <Play className="h-5 w-5 fill-current" />
-            JOGAR
+            {accountNick ? "JOGAR" : "JOGAR SEM CONTA"}
           </button>
 
           <button
@@ -242,34 +262,45 @@ export function Overlays({
 
           {/* Enviar para o Ranking Online */}
           {elapsed >= 0.5 && (
-            <form onSubmit={(e) => void handleSubmitScore(e)} className="mt-4 w-full">
-              {submittedId ? (
-                <div className="flex items-center justify-center gap-2 rounded bg-pine/25 px-3 py-2 text-xs font-bold text-pine-foreground">
-                  <Check className="h-4 w-4 text-gold" />
-                  Tempo salvo no Ranking Online!
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    maxLength={20}
-                    value={nickname}
-                    onChange={(e) => setNickname(e.target.value)}
-                    placeholder="Seu apelido no ranking"
-                    className="min-w-0 flex-1 rounded border border-border bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-gold focus:outline-none"
-                  />
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="voxel-btn flex shrink-0 items-center gap-1.5 rounded bg-gold px-3.5 py-2 text-xs text-gold-foreground disabled:opacity-60"
-                  >
-                    <Send className="h-3.5 w-3.5" />
-                    {submitting ? "..." : "SALVAR"}
-                  </button>
-                </div>
-              )}
-              {submitError && <p className="mt-1.5 text-xs text-destructive">{submitError}</p>}
-            </form>
+            accountNick ? (
+              <form onSubmit={(e) => void handleSubmitScore(e)} className="mt-4 w-full">
+                {submittedId ? (
+                  <div className="flex items-center justify-center gap-2 rounded bg-pine/25 px-3 py-2 text-xs font-bold text-pine-foreground">
+                    <Check className="h-4 w-4 text-gold" />
+                    Tempo salvo no Ranking Online!
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      maxLength={20}
+                      value={nickname}
+                      onChange={(e) => setNickname(e.target.value)}
+                      placeholder="Seu apelido no ranking"
+                      className="min-w-0 flex-1 rounded border border-border bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-gold focus:outline-none"
+                    />
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="voxel-btn flex shrink-0 items-center gap-1.5 rounded bg-gold px-3.5 py-2 text-xs text-gold-foreground disabled:opacity-60"
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                      {submitting ? "..." : "SALVAR"}
+                    </button>
+                  </div>
+                )}
+                {submitError && <p className="mt-1.5 text-xs text-destructive">{submitError}</p>}
+              </form>
+            ) : (
+              <button
+                type="button"
+                onClick={onOpenAuth}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-md border border-gold/40 bg-gold/15 px-3 py-2.5 text-xs font-bold text-gold hover:bg-gold/25"
+              >
+                <LogIn className="h-4 w-4 shrink-0" />
+                Entrar com Nick e senha para salvar no Ranking Online
+              </button>
+            )
           )}
 
           <div className="mt-5 flex w-full gap-2.5">

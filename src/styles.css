@@ -190,7 +190,12 @@
   background-color: var(--hud-surface);
   border: 2px solid var(--hud-border);
   box-shadow: 0 4px 0 oklch(0.08 0.03 260 / 65%);
-  backdrop-filter: blur(6px);
+}
+
+@media (min-width: 768px) and (pointer: fine) {
+  .hud-panel {
+    backdrop-filter: blur(6px);
+  }
 }
 
 .voxel-btn {

@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { LogIn, UserPlus } from "lucide-react";
+import { LogIn, Play, UserPlus, X } from "lucide-react";
 import { signInWithNick, signUpWithNick, type PlayerProfile } from "../account";
 
 interface AuthGateProps {
   onAuthenticated: (profile: PlayerProfile) => void;
+  onContinueGuest: () => void;
 }
 
-export function AuthGate({ onAuthenticated }: AuthGateProps) {
+export function AuthGate({ onAuthenticated, onContinueGuest }: AuthGateProps) {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [nick, setNick] = useState("");
   const [password, setPassword] = useState("");
@@ -32,15 +33,23 @@ export function AuthGate({ onAuthenticated }: AuthGateProps) {
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-background/55 p-4 md:backdrop-blur-[2px]">
-      <div className="hud-panel my-auto flex w-full max-w-sm flex-col items-center rounded-md px-5 py-6 text-center">
+      <div className="hud-panel relative my-auto flex w-full max-w-sm flex-col items-center rounded-md px-5 py-6 text-center">
+        <button
+          type="button"
+          onClick={onContinueGuest}
+          aria-label="Fechar e jogar sem conta"
+          className="absolute top-3 right-3 rounded border border-border bg-secondary/80 p-1.5 text-muted-foreground hover:text-foreground"
+        >
+          <X className="h-4 w-4" />
+        </button>
         <span className="rounded bg-primary/25 px-3 py-1 font-display text-[11px] tracking-widest text-gold uppercase">
           NÃO PEGUE A MOEDA!
         </span>
-        <h1 className="mt-2 font-display text-4xl tracking-tight text-foreground drop-shadow-[0_4px_0_rgba(8,14,32,0.9)]">
+        <h1 className="mt-2 font-display text-4xl tracking-tight text-foreground [text-shadow:0_4px_0_rgba(8,14,32,0.9)]">
           thzinkkj
         </h1>
         <p className="mt-1.5 text-xs text-muted-foreground">
-          Entre com seu Nick e senha para salvar personagem, mapa e recorde.
+          Entre com Nick e senha para salvar personagem, mapa e entrar no ranking online.
         </p>
 
         <div className="mt-4 grid w-full grid-cols-2 gap-1.5 rounded bg-secondary/70 p-1">
@@ -124,6 +133,15 @@ export function AuthGate({ onAuthenticated }: AuthGateProps) {
             {loading ? "ENTRANDO..." : mode === "register" ? "CRIAR CONTA" : "ENTRAR NO JOGO"}
           </button>
         </form>
+
+        <button
+          type="button"
+          onClick={onContinueGuest}
+          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-md border border-border bg-secondary/75 px-4 py-2.5 text-xs font-bold text-foreground hover:bg-secondary"
+        >
+          <Play className="h-3.5 w-3.5 fill-current text-pine" />
+          Jogar sem conta
+        </button>
       </div>
     </div>
   );

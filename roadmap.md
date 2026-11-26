@@ -12,4 +12,5 @@
 - [x] Otimizar desempenho 3D e resposta de toque (swipe instantâneo) para celulares
 - [x] Sistema de contas ao entrar no jogo com Nick e senha + perfil salvo na nuvem (personagem, mapa, recorde)
 - [x] Verificar cadastro/login, persistência de perfil, novos mapas/personagens e layout mobile na prévia- [ ] Corrigir erro 'página não carregou' no site publicado
-- [x] Melhorar desempenho no celular (lentidão)
+- [ ] Aumentar FPS no celular (instancing de cenário/entidades, remover blur e filtros sobre o canvas)
+- [ ] Liberar modo convidado ("Jogar sem conta") na tela inicial mantendo conta opcional para perfil e ranking online

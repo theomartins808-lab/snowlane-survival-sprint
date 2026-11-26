@@ -55,6 +55,7 @@ function GamePage() {
   const swipeConsumedRef = useRef(false);
   const keyFlashTimerRef = useRef<number | null>(null);
   const savedThisRunRef = useRef(false);
+  const renderStatsRef = useRef({ calls: 0, triangles: 0, geometries: 0 });
 
   const [isMobile] = useState(
     () =>
@@ -63,7 +64,7 @@ function GamePage() {
   );
   const [sceneReady, setSceneReady] = useState(false);
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [authOpen, setAuthOpen] = useState(false);
   const [localRecord, setLocalRecord] = useState<LocalRecord>(() => loadLocalRecord());
   const [prefs, setPrefs] = useState(() => loadPlayerPrefs());
   const [isNewBest, setIsNewBest] = useState(false);
@@ -82,6 +83,7 @@ function GamePage() {
   const applyProfile = useCallback((next: PlayerProfile | null) => {
     setProfile(next);
     if (!next) return;
+    setAuthOpen(false);
     setPrefs({ character: next.characterId, map: next.mapId });
     savePlayerPrefs({ character: next.characterId, map: next.mapId });
     setLocalRecord((prev) => ({
@@ -92,13 +94,9 @@ function GamePage() {
 
   useEffect(() => {
     let active = true;
-    void fetchCurrentProfile()
-      .then((p) => {
-        if (active) applyProfile(p);
-      })
-      .finally(() => {
-        if (active) setAuthLoading(false);
-      });
+    void fetchCurrentProfile().then((p) => {
+      if (active) applyProfile(p);
+    });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
@@ -210,7 +208,7 @@ function GamePage() {
   // Keyboard controls: WASD, Arrow keys, Space, Pause (P / Escape)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (!profile) return;
+      if (authOpen) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       const code = e.code;
       if (code === "ArrowLeft" || code === "KeyA") {
@@ -236,7 +234,7 @@ function GamePage() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [profile, startGame, togglePause, triggerAction]);
+  }, [authOpen, startGame, togglePause, triggerAction]);
 
   // Dev-only debug hooks for automated verification
   useEffect(() => {
@@ -263,6 +261,9 @@ function GamePage() {
       action: triggerAction,
       setCharacter: selectCharacter,
       setMap: selectMap,
+      get renderStats() {
+        return renderStatsRef.current;
+      },
       sim: (seconds: number) => {
         const steps = Math.max(1, Math.round(seconds * 60));
         for (let i = 0; i < steps; i++) stepSimulation(stateRef.current, 1 / 60);
@@ -343,6 +344,7 @@ function GamePage() {
         isMobile={isMobile}
         onHudSync={handleHudSync}
         onSceneReady={() => setSceneReady(true)}
+        renderStatsRef={renderStatsRef}
       />
 
       <GameHud
@@ -356,35 +358,33 @@ function GamePage() {
         onTogglePause={togglePause}
       />
 
-      {authLoading ? (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-background/50">
-          <div className="hud-panel rounded-md px-5 py-3 font-display text-xs text-gold">
-            CARREGANDO CONTA...
-          </div>
-        </div>
-      ) : !profile ? (
-        <AuthGate onAuthenticated={applyProfile} />
-      ) : (
-        <Overlays
-          phase={hud.phase}
-          reason={hud.reason}
-          elapsed={hud.elapsed}
-          distance={hud.distance}
-          isNewBest={isNewBest}
-          localRecord={localRecord}
-          accountNick={profile.nick}
-          character={prefs.character}
-          mapId={prefs.map}
-          onSelectCharacter={selectCharacter}
-          onSelectMap={selectMap}
-          onSignOut={handleSignOut}
-          onStart={startGame}
-          onResume={togglePause}
-          onRestart={startGame}
-          onOpenLeaderboard={(id) => {
-            setHighlightScoreId(id ?? null);
-            setLeaderboardOpen(true);
-          }}
+      <Overlays
+        phase={hud.phase}
+        reason={hud.reason}
+        elapsed={hud.elapsed}
+        distance={hud.distance}
+        isNewBest={isNewBest}
+        localRecord={localRecord}
+        accountNick={profile?.nick ?? null}
+        character={prefs.character}
+        mapId={prefs.map}
+        onSelectCharacter={selectCharacter}
+        onSelectMap={selectMap}
+        onOpenAuth={() => setAuthOpen(true)}
+        onSignOut={handleSignOut}
+        onStart={startGame}
+        onResume={togglePause}
+        onRestart={startGame}
+        onOpenLeaderboard={(id) => {
+          setHighlightScoreId(id ?? null);
+          setLeaderboardOpen(true);
+        }}
+      />
+
+      {authOpen && (
+        <AuthGate
+          onAuthenticated={applyProfile}
+          onContinueGuest={() => setAuthOpen(false)}
         />
       )}
 

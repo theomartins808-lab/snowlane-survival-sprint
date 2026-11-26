@@ -1,247 +1,265 @@
-import { useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import type * as THREE from "three";
+import * as THREE from "three";
 import type { MapThemeDef } from "../catalog";
 import { SIM_CONFIG, type GameState } from "../sim/types";
 import type { VoxelTextures } from "./textures";
 
 const MAX_TRAINS = 14;
-const MAX_JUMP_BARRIERS = 12;
-const MAX_DUCK_BARRIERS = 12;
+const MAX_BARRIERS = 24;
 const MAX_COINS = 64;
+
+const _dummy = new THREE.Object3D();
+const _color = new THREE.Color();
 
 interface EntitiesMeshProps {
   stateRef: React.MutableRefObject<GameState>;
   textures: VoxelTextures;
   theme: MapThemeDef;
+  isMobile: boolean;
 }
 
-export function EntitiesMesh({ stateRef, textures, theme }: EntitiesMeshProps) {
-  const trainRefs = useRef<(THREE.Group | null)[]>([]);
-  const trainBodyMatRefs = useRef<(THREE.MeshStandardMaterial | null)[]>([]);
-  const jumpRefs = useRef<(THREE.Group | null)[]>([]);
-  const duckRefs = useRef<(THREE.Group | null)[]>([]);
-  const coinRefs = useRef<(THREE.Group | null)[]>([]);
+function setBox(
+  mesh: THREE.InstancedMesh,
+  index: number,
+  x: number,
+  y: number,
+  z: number,
+  sx: number,
+  sy: number,
+  sz: number,
+  colorHex?: string,
+  rotY = 0,
+) {
+  _dummy.position.set(x, y, z);
+  _dummy.rotation.set(0, rotY, 0);
+  _dummy.scale.set(sx, sy, sz);
+  _dummy.updateMatrix();
+  mesh.setMatrixAt(index, _dummy.matrix);
+  if (colorHex) {
+    _color.set(colorHex);
+    mesh.setColorAt(index, _color);
+  }
+}
+
+export function EntitiesMesh({ stateRef, textures, theme, isMobile }: EntitiesMeshProps) {
+  const trainBodyRef = useRef<THREE.InstancedMesh>(null);
+  const trainTrimRef = useRef<THREE.InstancedMesh>(null);
+  const trainWinRef = useRef<THREE.InstancedMesh>(null);
+  const trainLightRef = useRef<THREE.InstancedMesh>(null);
+  const barrierPostRef = useRef<THREE.InstancedMesh>(null);
+  const barrierBoardRef = useRef<THREE.InstancedMesh>(null);
+  const coinOuterRef = useRef<THREE.InstancedMesh>(null);
+  const coinInnerRef = useRef<THREE.InstancedMesh>(null);
+
+  const unitBox = useMemo(() => new THREE.BoxGeometry(1, 1, 1), []);
+  useEffect(() => () => unitBox.dispose(), [unitBox]);
 
   useFrame(({ clock }) => {
     const s = stateRef.current;
     const t = clock.getElapsedTime();
 
+    const trainBody = trainBodyRef.current;
+    const trainTrim = trainTrimRef.current;
+    const trainWin = trainWinRef.current;
+    const trainLight = trainLightRef.current;
+    const barrierPost = barrierPostRef.current;
+    const barrierBoard = barrierBoardRef.current;
+    const coinOuter = coinOuterRef.current;
+    const coinInner = coinInnerRef.current;
+
     let trainIdx = 0;
-    let jumpIdx = 0;
-    let duckIdx = 0;
+    let trimIdx = 0;
+    let winIdx = 0;
+    let lightIdx = 0;
+    let postIdx = 0;
+    let boardIdx = 0;
 
     for (const obs of s.obstacles) {
       const x = obs.lane * SIM_CONFIG.LANE_WIDTH;
       if (obs.kind === "train_red" || obs.kind === "train_brown") {
-        if (trainIdx < MAX_TRAINS) {
-          const grp = trainRefs.current[trainIdx];
-          const mat = trainBodyMatRefs.current[trainIdx];
-          if (grp) {
-            grp.visible = true;
-            grp.position.set(x, 0, obs.z);
-            grp.scale.set(1, 1, obs.length / 10);
-          }
-          if (mat) {
-            mat.color.set(obs.kind === "train_red" ? theme.trainPrimary : theme.trainSecondary);
-          }
-          trainIdx++;
+        if (trainIdx >= MAX_TRAINS) continue;
+        const len = obs.length;
+        const halfLen = len * 0.5;
+        const bodyColor = obs.kind === "train_red" ? theme.trainPrimary : theme.trainSecondary;
+        if (trainBody) {
+          setBox(trainBody, trainIdx, x, 1.4, obs.z, 2.0, 2.28, len, bodyColor);
         }
+        if (trainTrim) {
+          setBox(trainTrim, trimIdx++, x, 2.64, obs.z, 2.06, 0.22, len + 0.05, theme.trainRoof);
+          setBox(trainTrim, trimIdx++, x, 0.22, obs.z, 1.86, 0.44, len * 0.97, "#212633");
+          setBox(trainTrim, trimIdx++, x, 1.95, obs.z + halfLen + 0.02, 1.5, 0.8, 0.06, "#182235");
+        }
+        if (trainWin) {
+          setBox(trainWin, winIdx++, x + 1.01, 1.78, obs.z, 0.04, 0.85, len * 0.86);
+          setBox(trainWin, winIdx++, x - 1.01, 1.78, obs.z, 0.04, 0.85, len * 0.86);
+        }
+        if (trainLight) {
+          setBox(trainLight, lightIdx++, x - 0.62, 0.95, obs.z + halfLen + 0.03, 0.34, 0.34, 0.06);
+          setBox(trainLight, lightIdx++, x + 0.62, 0.95, obs.z + halfLen + 0.03, 0.34, 0.34, 0.06);
+        }
+        trainIdx++;
       } else if (obs.kind === "barrier_jump") {
-        if (jumpIdx < MAX_JUMP_BARRIERS) {
-          const grp = jumpRefs.current[jumpIdx];
-          if (grp) {
-            grp.visible = true;
-            grp.position.set(x, 0, obs.z);
-          }
-          jumpIdx++;
+        if (boardIdx >= MAX_BARRIERS) continue;
+        if (barrierPost) {
+          setBox(barrierPost, postIdx++, x - 0.85, 0.5, obs.z, 0.24, 1.0, 0.34, "#2f3747");
+          setBox(barrierPost, postIdx++, x + 0.85, 0.5, obs.z, 0.24, 1.0, 0.34, "#2f3747");
+        }
+        if (barrierBoard) {
+          setBox(barrierBoard, boardIdx++, x, 0.72, obs.z, 2.1, 0.52, 0.24);
         }
       } else if (obs.kind === "barrier_duck") {
-        if (duckIdx < MAX_DUCK_BARRIERS) {
-          const grp = duckRefs.current[duckIdx];
-          if (grp) {
-            grp.visible = true;
-            grp.position.set(x, 0, obs.z);
-          }
-          duckIdx++;
+        if (boardIdx >= MAX_BARRIERS) continue;
+        if (barrierPost) {
+          setBox(barrierPost, postIdx++, x - 0.95, 1.2, obs.z, 0.24, 2.4, 0.28, "#2f3747");
+          setBox(barrierPost, postIdx++, x + 0.95, 1.2, obs.z, 0.24, 2.4, 0.28, "#2f3747");
+          setBox(barrierPost, postIdx++, x, 1.32, obs.z + 0.04, 2.16, 0.14, 0.32, "#ffd43b");
+        }
+        if (barrierBoard) {
+          setBox(barrierBoard, boardIdx++, x, 1.82, obs.z, 2.2, 0.92, 0.34);
         }
       }
     }
 
-    for (let i = trainIdx; i < MAX_TRAINS; i++) {
-      const grp = trainRefs.current[i];
-      if (grp) grp.visible = false;
+    if (trainBody) {
+      trainBody.count = trainIdx;
+      trainBody.instanceMatrix.needsUpdate = true;
+      if (trainBody.instanceColor) trainBody.instanceColor.needsUpdate = true;
     }
-    for (let i = jumpIdx; i < MAX_JUMP_BARRIERS; i++) {
-      const grp = jumpRefs.current[i];
-      if (grp) grp.visible = false;
+    if (trainTrim) {
+      trainTrim.count = trimIdx;
+      trainTrim.instanceMatrix.needsUpdate = true;
+      if (trainTrim.instanceColor) trainTrim.instanceColor.needsUpdate = true;
     }
-    for (let i = duckIdx; i < MAX_DUCK_BARRIERS; i++) {
-      const grp = duckRefs.current[i];
-      if (grp) grp.visible = false;
+    if (trainWin) {
+      trainWin.count = winIdx;
+      trainWin.instanceMatrix.needsUpdate = true;
+    }
+    if (trainLight) {
+      trainLight.count = lightIdx;
+      trainLight.instanceMatrix.needsUpdate = true;
+    }
+    if (barrierPost) {
+      barrierPost.count = postIdx;
+      barrierPost.instanceMatrix.needsUpdate = true;
+      if (barrierPost.instanceColor) barrierPost.instanceColor.needsUpdate = true;
+    }
+    if (barrierBoard) {
+      barrierBoard.count = boardIdx;
+      barrierBoard.instanceMatrix.needsUpdate = true;
     }
 
-    // Moedas douradas brilhando e girando
+    // Moedas douradas brilhando e girando (apenas 2 draw calls para todas as moedas)
     let coinIdx = 0;
     for (const coin of s.coins) {
       if (coinIdx >= MAX_COINS) break;
-      const grp = coinRefs.current[coinIdx];
-      if (grp) {
-        grp.visible = true;
-        const bob = Math.sin(t * 5.2 + coin.phase) * 0.14;
-        grp.position.set(coin.x, coin.y + bob, coin.z);
-        grp.rotation.y = t * 4.4 + coin.phase;
-      }
+      const bob = Math.sin(t * 5.2 + coin.phase) * 0.14;
+      const rotY = t * 4.4 + coin.phase;
+      if (coinOuter) setBox(coinOuter, coinIdx, coin.x, coin.y + bob, coin.z, 0.82, 0.82, 0.22, undefined, rotY);
+      if (coinInner) setBox(coinInner, coinIdx, coin.x, coin.y + bob, coin.z, 0.46, 0.56, 0.28, undefined, rotY);
       coinIdx++;
     }
-    for (let i = coinIdx; i < MAX_COINS; i++) {
-      const grp = coinRefs.current[i];
-      if (grp) grp.visible = false;
+    if (coinOuter) {
+      coinOuter.count = coinIdx;
+      coinOuter.instanceMatrix.needsUpdate = true;
+    }
+    if (coinInner) {
+      coinInner.count = coinIdx;
+      coinInner.instanceMatrix.needsUpdate = true;
     }
   });
 
   return (
     <group>
-      {/* Pool de Trens Vermelhos e Marrons */}
-      {Array.from({ length: MAX_TRAINS }).map((_, i) => (
-        <group
-          key={`train-${i}`}
-          visible={false}
-          ref={(el) => {
-            trainRefs.current[i] = el;
-          }}
-        >
-          <mesh position={[0, 1.4, 0]} castShadow receiveShadow>
-            <boxGeometry args={[2.0, 2.28, 10]} />
-            <meshStandardMaterial
-              ref={(el) => {
-                trainBodyMatRefs.current[i] = el;
-              }}
-              color={theme.trainPrimary}
-              roughness={0.65}
-            />
-          </mesh>
-          {/* Teto plano (altura 2.75) onde o jogador pode pousar e correr */}
-          <mesh position={[0, 2.64, 0]} receiveShadow>
-            <boxGeometry args={[2.06, 0.22, 10.05]} />
-            <meshStandardMaterial color={theme.trainRoof} roughness={0.55} />
-          </mesh>
-          {/* Base / rodas */}
-          <mesh position={[0, 0.22, 0]}>
-            <boxGeometry args={[1.86, 0.44, 9.7]} />
-            <meshStandardMaterial color="#212633" roughness={0.85} />
-          </mesh>
-          {/* Janelas iluminadas nas laterais */}
-          <mesh position={[1.01, 1.78, 0]}>
-            <boxGeometry args={[0.04, 0.85, 8.6]} />
-            <meshStandardMaterial map={textures.trainWindow} emissive="#ffcf66" emissiveIntensity={0.45} />
-          </mesh>
-          <mesh position={[-1.01, 1.78, 0]}>
-            <boxGeometry args={[0.04, 0.85, 8.6]} />
-            <meshStandardMaterial map={textures.trainWindow} emissive="#ffcf66" emissiveIntensity={0.45} />
-          </mesh>
-          {/* Para-brisa e faróis frontais (voltados para o jogador em +Z) */}
-          <mesh position={[0, 1.95, 5.02]}>
-            <boxGeometry args={[1.5, 0.8, 0.06]} />
-            <meshStandardMaterial color="#182235" roughness={0.3} metalness={0.4} />
-          </mesh>
-          <mesh position={[-0.62, 0.95, 5.03]}>
-            <boxGeometry args={[0.34, 0.34, 0.06]} />
-            <meshStandardMaterial color="#fff8c4" emissive="#ffe066" emissiveIntensity={2.0} />
-          </mesh>
-          <mesh position={[0.62, 0.95, 5.03]}>
-            <boxGeometry args={[0.34, 0.34, 0.06]} />
-            <meshStandardMaterial color="#fff8c4" emissive="#ffe066" emissiveIntensity={2.0} />
-          </mesh>
-        </group>
-      ))}
+      {/* Trens (4 draw calls no total para todos os trens) */}
+      <instancedMesh
+        ref={trainBodyRef}
+        args={[unitBox, undefined, MAX_TRAINS]}
+        count={0}
+        frustumCulled={false}
+        castShadow={!isMobile}
+        receiveShadow={!isMobile}
+      >
+        {isMobile ? <meshLambertMaterial /> : <meshStandardMaterial roughness={0.65} />}
+      </instancedMesh>
+      <instancedMesh
+        ref={trainTrimRef}
+        args={[unitBox, undefined, MAX_TRAINS * 3]}
+        count={0}
+        frustumCulled={false}
+        receiveShadow={!isMobile}
+      >
+        {isMobile ? <meshLambertMaterial /> : <meshStandardMaterial roughness={0.6} />}
+      </instancedMesh>
+      <instancedMesh
+        ref={trainWinRef}
+        args={[unitBox, undefined, MAX_TRAINS * 2]}
+        count={0}
+        frustumCulled={false}
+      >
+        <meshBasicMaterial map={textures.trainWindow} />
+      </instancedMesh>
+      <instancedMesh
+        ref={trainLightRef}
+        args={[unitBox, undefined, MAX_TRAINS * 2]}
+        count={0}
+        frustumCulled={false}
+      >
+        <meshBasicMaterial color="#fff3a8" />
+      </instancedMesh>
 
-      {/* Pool de Barreiras para Pular */}
-      {Array.from({ length: MAX_JUMP_BARRIERS }).map((_, i) => (
-        <group
-          key={`jump-${i}`}
-          visible={false}
-          ref={(el) => {
-            jumpRefs.current[i] = el;
-          }}
-        >
-          <mesh position={[-0.85, 0.5, 0]} castShadow>
-            <boxGeometry args={[0.24, 1.0, 0.34]} />
-            <meshStandardMaterial color="#2f3747" roughness={0.8} />
-          </mesh>
-          <mesh position={[0.85, 0.5, 0]} castShadow>
-            <boxGeometry args={[0.24, 1.0, 0.34]} />
-            <meshStandardMaterial color="#2f3747" roughness={0.8} />
-          </mesh>
-          <mesh position={[0, 0.72, 0]} castShadow>
-            <boxGeometry args={[2.1, 0.52, 0.24]} />
-            <meshStandardMaterial map={textures.hazardStripe} roughness={0.55} />
-          </mesh>
-        </group>
-      ))}
+      {/* Barreiras de pular e abaixar (2 draw calls no total) */}
+      <instancedMesh
+        ref={barrierPostRef}
+        args={[unitBox, undefined, MAX_BARRIERS * 3]}
+        count={0}
+        frustumCulled={false}
+        castShadow={!isMobile}
+      >
+        {isMobile ? <meshLambertMaterial /> : <meshStandardMaterial roughness={0.78} />}
+      </instancedMesh>
+      <instancedMesh
+        ref={barrierBoardRef}
+        args={[unitBox, undefined, MAX_BARRIERS]}
+        count={0}
+        frustumCulled={false}
+        castShadow={!isMobile}
+      >
+        {isMobile ? (
+          <meshLambertMaterial map={textures.hazardStripe} />
+        ) : (
+          <meshStandardMaterial map={textures.hazardStripe} roughness={0.55} />
+        )}
+      </instancedMesh>
 
-      {/* Pool de Barreiras Altas para Abaixar */}
-      {Array.from({ length: MAX_DUCK_BARRIERS }).map((_, i) => (
-        <group
-          key={`duck-${i}`}
-          visible={false}
-          ref={(el) => {
-            duckRefs.current[i] = el;
-          }}
-        >
-          <mesh position={[-0.95, 1.2, 0]} castShadow>
-            <boxGeometry args={[0.24, 2.4, 0.28]} />
-            <meshStandardMaterial color="#2f3747" roughness={0.8} />
-          </mesh>
-          <mesh position={[0.95, 1.2, 0]} castShadow>
-            <boxGeometry args={[0.24, 2.4, 0.28]} />
-            <meshStandardMaterial color="#2f3747" roughness={0.8} />
-          </mesh>
-          <mesh position={[0, 1.82, 0]} castShadow>
-            <boxGeometry args={[2.2, 0.92, 0.34]} />
-            <meshStandardMaterial map={textures.hazardStripe} roughness={0.55} />
-          </mesh>
-          {/* Faixa amarela inferior indicando passe por baixo */}
-          <mesh position={[0, 1.32, 0.04]}>
-            <boxGeometry args={[2.16, 0.14, 0.32]} />
-            <meshStandardMaterial color="#ffd43b" emissive="#fab005" emissiveIntensity={0.6} />
-          </mesh>
-        </group>
-      ))}
-
-      {/* Pool de Moedas Douradas Brilhantes */}
-      {Array.from({ length: MAX_COINS }).map((_, i) => (
-        <group
-          key={`coin-${i}`}
-          visible={false}
-          ref={(el) => {
-            coinRefs.current[i] = el;
-          }}
-        >
-          {/* Aro externo dourado voxel */}
-          <mesh castShadow>
-            <boxGeometry args={[0.82, 0.82, 0.22]} />
-            <meshStandardMaterial
-              color="#ffd93b"
-              emissive="#ffae00"
-              emissiveIntensity={1.15}
-              metalness={0.55}
-              roughness={0.22}
-            />
-          </mesh>
-          {/* Centro brilhante em relevo */}
-          <mesh>
-            <boxGeometry args={[0.46, 0.56, 0.28]} />
-            <meshStandardMaterial
-              color="#fff3a1"
-              emissive="#ffd43b"
-              emissiveIntensity={1.5}
-              metalness={0.35}
-              roughness={0.18}
-            />
-          </mesh>
-        </group>
-      ))}
+      {/* Moedas douradas (2 draw calls no total para até 64 moedas) */}
+      <instancedMesh
+        ref={coinOuterRef}
+        args={[unitBox, undefined, MAX_COINS]}
+        count={0}
+        frustumCulled={false}
+        castShadow={!isMobile}
+      >
+        {isMobile ? (
+          <meshLambertMaterial color="#ffd93b" emissive="#ffae00" emissiveIntensity={0.95} />
+        ) : (
+          <meshStandardMaterial
+            color="#ffd93b"
+            emissive="#ffae00"
+            emissiveIntensity={1.15}
+            metalness={0.55}
+            roughness={0.22}
+          />
+        )}
+      </instancedMesh>
+      <instancedMesh
+        ref={coinInnerRef}
+        args={[unitBox, undefined, MAX_COINS]}
+        count={0}
+        frustumCulled={false}
+      >
+        <meshBasicMaterial color="#fff3a1" />
+      </instancedMesh>
     </group>
   );
 }
