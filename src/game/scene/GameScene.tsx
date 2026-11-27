@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Environment, Lightformer } from "@react-three/drei";
 import { gameAudio } from "../audio/sound";
 import { getMapTheme, type CharacterId, type MapId } from "../catalog";
 import { stepSimulation } from "../sim/engine";
@@ -26,8 +25,11 @@ interface GameSceneProps {
   isMobile: boolean;
   onHudSync: (snap: HudSnapshot) => void;
   onSceneReady: () => void;
-  renderStatsRef?: React.MutableRefObject<{ calls: number; triangles: number; geometries: number }>;
+  renderStatsRef?: React.MutableRefObject<{ calls: number; triangles: number; geometries: number; dpr: number }>;
 }
+
+const DESKTOP_DPR_TIERS = [1.25, 1.0, 0.85, 0.72] as const;
+const MOBILE_DPR_TIERS = [0.85, 0.72, 0.62] as const;
 
 function SceneContent({
   stateRef,
@@ -43,6 +45,8 @@ function SceneContent({
   const readySentRef = useRef(false);
   const hudThrottleRef = useRef(0);
   const lastPhaseRef = useRef<GamePhase>(stateRef.current.phase);
+  const dprTierRef = useRef(0);
+  const perfWindowRef = useRef({ frames: 0, totalMs: 0, goodWindows: 0 });
 
   useEffect(() => {
     return () => textures.dispose();
@@ -53,11 +57,42 @@ function SceneContent({
       readySentRef.current = true;
       onSceneReady();
     }
+
+    // Adaptive resolution scaling: drops DPR smoothly if frame times exceed budget
+    const dtMs = rawDelta * 1000;
+    if (!document.hidden && dtMs > 0 && dtMs < 250) {
+      const perf = perfWindowRef.current;
+      perf.frames += 1;
+      perf.totalMs += dtMs;
+      if (perf.totalMs >= 1500 && perf.frames >= 10) {
+        const avgMs = perf.totalMs / perf.frames;
+        const tiers = isMobile ? MOBILE_DPR_TIERS : DESKTOP_DPR_TIERS;
+        const deviceCap = Math.min(window.devicePixelRatio || 1, tiers[0]);
+        if (avgMs > 22 && dprTierRef.current < tiers.length - 1) {
+          dprTierRef.current += 1;
+          perf.goodWindows = 0;
+          gl.setPixelRatio(Math.min(deviceCap, tiers[dprTierRef.current] ?? 0.72));
+        } else if (avgMs < 14 && dprTierRef.current > 0) {
+          perf.goodWindows += 1;
+          if (perf.goodWindows >= 2) {
+            dprTierRef.current -= 1;
+            perf.goodWindows = 0;
+            gl.setPixelRatio(Math.min(deviceCap, tiers[dprTierRef.current] ?? 1));
+          }
+        } else {
+          perf.goodWindows = 0;
+        }
+        perf.frames = 0;
+        perf.totalMs = 0;
+      }
+    }
+
     if (renderStatsRef) {
       renderStatsRef.current = {
         calls: gl.info.render.calls,
         triangles: gl.info.render.triangles,
         geometries: gl.info.memory.geometries,
+        dpr: Number(gl.getPixelRatio().toFixed(2)),
       };
     }
 
@@ -81,7 +116,7 @@ function SceneContent({
 
     hudThrottleRef.current += rawDelta;
     const phaseChanged = state.phase !== lastPhaseRef.current;
-    const hudInterval = isMobile ? 0.12 : 0.08;
+    const hudInterval = isMobile ? 0.12 : 0.1;
     if (phaseChanged || hudThrottleRef.current >= hudInterval) {
       hudThrottleRef.current = 0;
       lastPhaseRef.current = state.phase;
@@ -99,34 +134,19 @@ function SceneContent({
   return (
     <>
       <color attach="background" args={[theme.skyColor]} />
-      <fog attach="fog" args={[theme.fogColor, isMobile ? 18 : 28, isMobile ? 62 : 98]} />
+      <fog attach="fog" args={[theme.fogColor, isMobile ? 18 : 24, isMobile ? 62 : 78]} />
 
-      {isMobile && <ambientLight intensity={0.55} />}
-      {/* IBL local sem CDN */}
-      {!isMobile && <Environment resolution={isMobile ? 64 : 128}>
-        <Lightformer intensity={1.8} color={theme.lightformerTop} position={[0, 8, 2]} scale={[14, 14, 1]} />
-        <Lightformer intensity={1.2} color={theme.lightformerWarm} position={[6, 4, -8]} scale={[8, 6, 1]} />
-        <Lightformer intensity={0.9} color={theme.lightformerSide} position={[-8, 3, -4]} scale={[10, 6, 1]} />
-      </Environment>}
-
+      <ambientLight intensity={0.5} />
       <hemisphereLight args={[theme.hemiSky, theme.hemiGround, theme.hemiIntensity]} />
       <directionalLight
         position={[10, 18, 12]}
         intensity={theme.sunIntensity}
         color={theme.sunColor}
-        castShadow={!isMobile}
-        shadow-mapSize={[512, 512]}
-        shadow-camera-near={1}
-        shadow-camera-far={75}
-        shadow-camera-left={-18}
-        shadow-camera-right={18}
-        shadow-camera-top={18}
-        shadow-camera-bottom={-18}
       />
 
       <WorldScenery stateRef={stateRef} textures={textures} theme={theme} isMobile={isMobile} />
-      <EntitiesMesh stateRef={stateRef} textures={textures} theme={theme} isMobile={isMobile} />
-      <PlayerMesh stateRef={stateRef} character={character} isMobile={isMobile} />
+      <EntitiesMesh stateRef={stateRef} textures={textures} theme={theme} />
+      <PlayerMesh stateRef={stateRef} character={character} />
     </>
   );
 }
@@ -135,10 +155,10 @@ export function GameScene(props: GameSceneProps) {
   const { isMobile } = props;
   return (
     <Canvas
-      shadows={!isMobile}
-      dpr={isMobile ? 0.85 : [1, 1.75]}
-      camera={{ position: [0, 4.65, 7.4], fov: isMobile ? 62 : 56, near: 0.2, far: isMobile ? 80 : 140 }}
-      gl={{ antialias: !isMobile, powerPreference: "high-performance", stencil: false, depth: true }}
+      shadows={false}
+      dpr={isMobile ? 0.85 : [0.85, 1.25]}
+      camera={{ position: [0, 4.65, 7.4], fov: isMobile ? 62 : 56, near: 0.2, far: isMobile ? 80 : 95 }}
+      gl={{ antialias: false, powerPreference: "high-performance", stencil: false, depth: true }}
       className="h-full w-full"
     >
       <SceneContent {...props} />

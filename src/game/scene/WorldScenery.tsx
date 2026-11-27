@@ -6,9 +6,9 @@ import { SIM_CONFIG, type GameState } from "../sim/types";
 import type { VoxelTextures } from "./textures";
 
 const CHUNK_LEN = 24;
-const DESKTOP_CHUNKS = 6;
+const DESKTOP_CHUNKS = 5;
 const MOBILE_CHUNKS = 4;
-const DESKTOP_PARTICLES = 180;
+const DESKTOP_PARTICLES = 90;
 const MOBILE_PARTICLES = 36;
 
 interface WorldSceneryProps {
@@ -320,38 +320,22 @@ export function WorldScenery({ stateRef, textures, theme, isMobile }: WorldScene
   return (
     <group>
       {/* Chão contínuo com UV scrolling (3 draw calls no total) */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, groundCenterZ]} receiveShadow={!isMobile}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.02, groundCenterZ]}>
         <planeGeometry args={[9.4, groundLen]} />
-        {isMobile ? (
-          <meshLambertMaterial map={textures.trackBed} />
-        ) : (
-          <meshStandardMaterial map={textures.trackBed} roughness={0.95} />
-        )}
+        <meshLambertMaterial map={textures.trackBed} />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-13.7, -0.01, groundCenterZ]} receiveShadow={!isMobile}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-13.7, -0.01, groundCenterZ]}>
         <planeGeometry args={[18, groundLen]} />
-        {isMobile ? (
-          <meshLambertMaterial map={textures.sideGround} />
-        ) : (
-          <meshStandardMaterial map={textures.sideGround} roughness={0.85} />
-        )}
+        <meshLambertMaterial map={textures.sideGround} />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[13.7, -0.01, groundCenterZ]} receiveShadow={!isMobile}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[13.7, -0.01, groundCenterZ]}>
         <planeGeometry args={[18, groundLen]} />
-        {isMobile ? (
-          <meshLambertMaterial map={textures.sideGround} />
-        ) : (
-          <meshStandardMaterial map={textures.sideGround} roughness={0.85} />
-        )}
+        <meshLambertMaterial map={textures.sideGround} />
       </mesh>
 
       {/* 6 trilhos metálicos em 1 draw call */}
       <instancedMesh ref={railsRef} args={[unitBox, undefined, 6]} frustumCulled={false}>
-        {isMobile ? (
-          <meshLambertMaterial color={theme.railColor} />
-        ) : (
-          <meshStandardMaterial color={theme.railColor} metalness={0.5} roughness={0.4} />
-        )}
+        <meshLambertMaterial color={theme.railColor} />
       </instancedMesh>
 
       {/* Todos os objetos sólidos das laterais em 1 draw call */}
@@ -361,9 +345,8 @@ export function WorldScenery({ stateRef, textures, theme, isMobile }: WorldScene
           ref={solidRef}
           args={[unitBox, undefined, solid.length]}
           frustumCulled={false}
-          castShadow={!isMobile}
         >
-          {isMobile ? <meshLambertMaterial /> : <meshStandardMaterial roughness={0.82} />}
+          <meshLambertMaterial />
         </instancedMesh>
       )}
 
@@ -387,11 +370,7 @@ export function WorldScenery({ stateRef, textures, theme, isMobile }: WorldScene
           args={[unitBox, undefined, facade.length]}
           frustumCulled={false}
         >
-          {isMobile ? (
-            <meshLambertMaterial map={textures.buildingFacade} />
-          ) : (
-            <meshStandardMaterial map={textures.buildingFacade} roughness={0.88} />
-          )}
+          <meshLambertMaterial map={textures.buildingFacade} />
         </instancedMesh>
       )}
 

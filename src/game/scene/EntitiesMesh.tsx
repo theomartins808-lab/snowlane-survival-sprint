@@ -16,7 +16,6 @@ interface EntitiesMeshProps {
   stateRef: React.MutableRefObject<GameState>;
   textures: VoxelTextures;
   theme: MapThemeDef;
-  isMobile: boolean;
 }
 
 function setBox(
@@ -42,7 +41,7 @@ function setBox(
   }
 }
 
-export function EntitiesMesh({ stateRef, textures, theme, isMobile }: EntitiesMeshProps) {
+export function EntitiesMesh({ stateRef, textures, theme }: EntitiesMeshProps) {
   const trainBodyRef = useRef<THREE.InstancedMesh>(null);
   const trainTrimRef = useRef<THREE.InstancedMesh>(null);
   const trainWinRef = useRef<THREE.InstancedMesh>(null);
@@ -177,19 +176,16 @@ export function EntitiesMesh({ stateRef, textures, theme, isMobile }: EntitiesMe
         args={[unitBox, undefined, MAX_TRAINS]}
         count={0}
         frustumCulled={false}
-        castShadow={!isMobile}
-        receiveShadow={!isMobile}
       >
-        {isMobile ? <meshLambertMaterial /> : <meshStandardMaterial roughness={0.65} />}
+        <meshLambertMaterial />
       </instancedMesh>
       <instancedMesh
         ref={trainTrimRef}
         args={[unitBox, undefined, MAX_TRAINS * 3]}
         count={0}
         frustumCulled={false}
-        receiveShadow={!isMobile}
       >
-        {isMobile ? <meshLambertMaterial /> : <meshStandardMaterial roughness={0.6} />}
+        <meshLambertMaterial />
       </instancedMesh>
       <instancedMesh
         ref={trainWinRef}
@@ -214,22 +210,16 @@ export function EntitiesMesh({ stateRef, textures, theme, isMobile }: EntitiesMe
         args={[unitBox, undefined, MAX_BARRIERS * 3]}
         count={0}
         frustumCulled={false}
-        castShadow={!isMobile}
       >
-        {isMobile ? <meshLambertMaterial /> : <meshStandardMaterial roughness={0.78} />}
+        <meshLambertMaterial />
       </instancedMesh>
       <instancedMesh
         ref={barrierBoardRef}
         args={[unitBox, undefined, MAX_BARRIERS]}
         count={0}
         frustumCulled={false}
-        castShadow={!isMobile}
       >
-        {isMobile ? (
-          <meshLambertMaterial map={textures.hazardStripe} />
-        ) : (
-          <meshStandardMaterial map={textures.hazardStripe} roughness={0.55} />
-        )}
+        <meshLambertMaterial map={textures.hazardStripe} />
       </instancedMesh>
 
       {/* Moedas douradas (2 draw calls no total para até 64 moedas) */}
@@ -238,19 +228,8 @@ export function EntitiesMesh({ stateRef, textures, theme, isMobile }: EntitiesMe
         args={[unitBox, undefined, MAX_COINS]}
         count={0}
         frustumCulled={false}
-        castShadow={!isMobile}
       >
-        {isMobile ? (
-          <meshLambertMaterial color="#ffd93b" emissive="#ffae00" emissiveIntensity={0.95} />
-        ) : (
-          <meshStandardMaterial
-            color="#ffd93b"
-            emissive="#ffae00"
-            emissiveIntensity={1.15}
-            metalness={0.55}
-            roughness={0.22}
-          />
-        )}
+        <meshLambertMaterial color="#ffd93b" emissive="#ffae00" emissiveIntensity={0.95} />
       </instancedMesh>
       <instancedMesh
         ref={coinInnerRef}

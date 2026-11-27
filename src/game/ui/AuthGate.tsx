@@ -32,7 +32,7 @@ export function AuthGate({ onAuthenticated, onContinueGuest }: AuthGateProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-background/55 p-4 md:backdrop-blur-[2px]">
+    <div className="fixed inset-0 z-40 flex items-center justify-center overflow-y-auto bg-background/55 p-4">
       <div className="hud-panel relative my-auto flex w-full max-w-sm flex-col items-center rounded-md px-5 py-6 text-center">
         <button
           type="button"

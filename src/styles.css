@@ -192,12 +192,6 @@
   box-shadow: 0 4px 0 oklch(0.08 0.03 260 / 65%);
 }
 
-@media (min-width: 768px) and (pointer: fine) {
-  .hud-panel {
-    backdrop-filter: blur(6px);
-  }
-}
-
 .voxel-btn {
   font-family: var(--font-display);
   box-shadow: 0 5px 0 oklch(0.1 0.03 260 / 80%), inset 0 2px 0 oklch(1 0 0 / 28%);

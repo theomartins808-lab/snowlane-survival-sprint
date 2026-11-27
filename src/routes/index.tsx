@@ -55,7 +55,7 @@ function GamePage() {
   const swipeConsumedRef = useRef(false);
   const keyFlashTimerRef = useRef<number | null>(null);
   const savedThisRunRef = useRef(false);
-  const renderStatsRef = useRef({ calls: 0, triangles: 0, geometries: 0 });
+  const renderStatsRef = useRef({ calls: 0, triangles: 0, geometries: 0, dpr: 1 });
 
   const [isMobile] = useState(
     () =>
